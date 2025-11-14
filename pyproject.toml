@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "finalproject-polyakov-m25-555"
+version = "0.1.0"
+description = "Консольное приложение для работы с валютным кошельком"
+authors = ["Polyakovoa <polyakovoa@mail.ru>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "valutatrade_hub", from = "." }
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+prettytable = "^3.9.0"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.1.0"
+
+[tool.poetry.scripts]
+valutatrade = "main:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+select = [
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "W",  # pycodestyle warnings
+]
+ignore = []
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
