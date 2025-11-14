@@ -124,3 +124,89 @@ class User:
         """Репрезентация объекта для отладки."""
         return (f"User(user_id={self._user_id}, username='{self._username}', "
                 f"registration_date='{self._registration_date.isoformat()}')")
+
+class Wallet:
+    """Класс кошелька пользователя для конкретной валюты."""
+
+    def __init__(self, currency_code: str, balance: float = 0.0):
+        self.currency_code = currency_code  # Используем сеттер для проверки
+        self.balance = balance  # Используем сеттер для проверки
+
+    @property
+    def currency_code(self) -> str:
+        """Геттер для кода валюты."""
+        return self._currency_code
+
+    @currency_code.setter
+    def currency_code(self, value: str) -> None:
+        """Сеттер для кода валюты с проверкой."""
+        if not value or not isinstance(value, str):
+            raise ValueError("Код валюты должен быть непустой строкой")
+        if len(value) != 3:
+            raise ValueError("Код валюты должен состоять из 3 символов")
+        self._currency_code = value.upper()
+
+    @property
+    def balance(self) -> float:
+        """Геттер для баланса кошелька."""
+        return self._balance
+
+    @balance.setter
+    def balance(self, value: float) -> None:
+        """Сеттер для баланса с проверкой на отрицательные значения."""
+        if not isinstance(value, (int, float)):
+            raise ValueError("Баланс должен быть числом")
+        if value < 0:
+            raise ValueError("Баланс не может быть отрицательным")
+        self._balance = float(value)
+
+    def deposit(self, amount: float) -> None:
+        """Пополняет баланс кошелька."""
+        if not isinstance(amount, (int, float)):
+            raise ValueError("Сумма пополнения должна быть числом")
+        if amount <= 0:
+            raise ValueError("Сумма пополнения должна быть положительной")
+
+        self.balance += amount
+
+    def withdraw(self, amount: float) -> bool:
+        """Снимает средства с кошелька, если баланс позволяет."""
+        if not isinstance(amount, (int, float)):
+            raise ValueError("Сумма снятия должна быть числом")
+        if amount <= 0:
+            raise ValueError("Сумма снятия должна быть положительной")
+        if amount > self._balance:
+            return False
+
+        self.balance -= amount
+        return True
+
+    def get_balance_info(self) -> dict:
+        """Возвращает информацию о текущем балансе."""
+        return {
+            "currency_code": self._currency_code,
+            "balance": self._balance
+        }
+
+    def to_dict(self) -> dict:
+        """Сериализует кошелек в словарь для сохранения в JSON."""
+        return {
+            "currency_code": self._currency_code,
+            "balance": self._balance
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Wallet':
+        """Создает объект Wallet из словаря (из JSON)."""
+        return cls(
+            currency_code=data["currency_code"],
+            balance=data["balance"]
+        )
+
+    def __str__(self) -> str:
+        """Строковое представление кошелька."""
+        return f"Wallet({self._currency_code}: {self._balance:.2f})"
+
+    def __repr__(self) -> str:
+        """Репрезентация объекта для отладки."""
+        return f"Wallet(currency_code='{self._currency_code}', balance={self._balance})"
