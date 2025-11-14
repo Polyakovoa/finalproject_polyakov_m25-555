@@ -210,3 +210,177 @@ class Wallet:
     def __repr__(self) -> str:
         """Репрезентация объекта для отладки."""
         return f"Wallet(currency_code='{self._currency_code}', balance={self._balance})"
+
+class Portfolio:
+    """Класс для управления всеми кошельками одного пользователя."""
+
+    def __init__(self, user_id: int, wallets: dict[str, Wallet] = None):
+        self._user_id = user_id
+        self._wallets = wallets or {}
+
+    @property
+    def user_id(self) -> int:
+        """Геттер для идентификатора пользователя."""
+        return self._user_id
+
+    @property
+    def wallets(self) -> dict[str, Wallet]:
+        """Геттер для копии словаря кошельков."""
+        return self._wallets.copy()
+
+    def add_currency(self, currency_code: str, initial_balance: float = 0.0) -> Wallet:
+        """Добавляет новый кошелёк в портфель, если его ещё нет."""
+        if not currency_code or not isinstance(currency_code, str):
+            raise ValueError("Код валюты должен быть непустой строкой")
+        
+        currency_code = currency_code.upper()
+        if currency_code in self._wallets:
+            raise ValueError(f"Кошелёк с валютой {currency_code} уже существует")
+        
+        wallet = Wallet(currency_code, initial_balance)
+        self._wallets[currency_code] = wallet
+        return wallet
+
+    def get_wallet(self, currency_code: str) -> Wallet:
+        """Возвращает объект Wallet по коду валюты."""
+        currency_code = currency_code.upper()
+        return self._wallets.get(currency_code)
+
+    def get_total_value(self, base_currency: str = 'USD') -> float:
+        """Возвращает общую стоимость всех валют в указанной базовой валюте."""
+        # Фиксированные курсы для демонстрации
+        exchange_rates = {
+            'USD': 1.0,
+            'EUR': 0.85,
+            'GBP': 0.73,
+            'JPY': 110.0,
+            'RUB': 80.0,
+            'BTC': 100000.0,  # 1 BTC = 100000 USD
+            'ETH': 3000.0    # 1 ETH = 3000 USD
+        }
+        
+        if base_currency not in exchange_rates:
+            raise ValueError(f"Неизвестная базовая валюта: {base_currency}")
+        
+        total_value = 0.0
+        
+        for currency_code, wallet in self._wallets.items():
+            if currency_code not in exchange_rates:
+                print(f"Предупреждение: неизвестный курс для валюты {currency_code}")
+                continue
+            
+            # Конвертируем в базовую валюту
+            if currency_code == base_currency:
+                total_value += wallet.balance
+            else:
+                # Сначала конвертируем в USD, затем в базовую валюту
+                value_in_usd = wallet.balance * exchange_rates[currency_code]
+                if base_currency != 'USD':
+                    value_in_base = value_in_usd / exchange_rates[base_currency]
+                else:
+                    value_in_base = value_in_usd
+                total_value += value_in_base
+        
+        return round(total_value, 2)
+
+    def buy_currency(
+        self, 
+        target_currency: str, 
+        amount: float, 
+        price: float
+    ) -> bool:
+        """Покупает валюту, списывая сумму с USD-кошелька."""
+        if amount <= 0:
+            raise ValueError("Сумма покупки должна быть положительной")
+        if price <= 0:
+            raise ValueError("Цена должна быть положительной")
+        
+        total_cost = amount * price
+        
+        # Получаем или создаем кошелек целевой валюты
+        target_wallet = self.get_wallet(target_currency)
+        if not target_wallet:
+            target_wallet = self.add_currency(target_currency)
+        
+        # Получаем USD кошелек
+        usd_wallet = self.get_wallet('USD')
+        if not usd_wallet:
+            raise ValueError("USD кошелёк не найден для совершения покупки")
+        
+        # Проверяем достаточно ли средств в USD кошельке
+        if usd_wallet.balance < total_cost:
+            return False
+        
+        # Списываем с USD кошелька и пополняем целевой кошелек
+        if usd_wallet.withdraw(total_cost):
+            target_wallet.deposit(amount)
+            return True
+        
+        return False
+
+    def sell_currency(
+        self, 
+        source_currency: str, 
+        amount: float, 
+        price: float
+    ) -> bool:
+        """Продает валюту, начисляя сумму на USD-кошелёк."""
+        if amount <= 0:
+            raise ValueError("Сумма продажи должна быть положительной")
+        if price <= 0:
+            raise ValueError("Цена должна быть положительной")
+        
+        total_income = amount * price
+        
+        # Получаем кошелек исходной валюты
+        source_wallet = self.get_wallet(source_currency)
+        if not source_wallet:
+            raise ValueError(f"Кошелёк {source_currency} не найден")
+        
+        # Получаем или создаем USD кошелек
+        usd_wallet = self.get_wallet('USD')
+        if not usd_wallet:
+            usd_wallet = self.add_currency('USD')
+        
+        # Проверяем достаточно ли средств в исходном кошельке
+        if source_wallet.balance < amount:
+            return False
+        
+        # Списываем с исходного кошелька и пополняем USD кошелек
+        if source_wallet.withdraw(amount):
+            usd_wallet.deposit(total_income)
+            return True
+        
+        return False
+
+    def to_dict(self) -> dict:
+        """Сериализует портфель в словарь для сохранения в JSON."""
+        wallets_dict = {}
+        for currency_code, wallet in self._wallets.items():
+            wallets_dict[currency_code] = wallet.to_dict()
+        
+        return {
+            "user_id": self._user_id,
+            "wallets": wallets_dict
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Portfolio':
+        """Создает объект Portfolio из словаря (из JSON)."""
+        wallets = {}
+        for currency_code, wallet_data in data["wallets"].items():
+            wallets[currency_code] = Wallet.from_dict(wallet_data)
+        
+        return cls(user_id=data["user_id"], wallets=wallets)
+
+    def __str__(self) -> str:
+        """Строковое представление портфеля."""
+        wallet_count = len(self._wallets)
+        total_value = self.get_total_value('USD')
+        return (f"Portfolio(user_id={self._user_id}, wallets={wallet_count}, "
+                f"total_value={total_value:.2f} USD)")
+
+    def __repr__(self) -> str:
+        """Репрезентация объекта для отладки."""
+        return (f"Portfolio(user_id={self._user_id}, "
+                f"wallets={list(self._wallets.keys())})")
