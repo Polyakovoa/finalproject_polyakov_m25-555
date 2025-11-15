@@ -28,3 +28,10 @@ MANIFEST
 venv/
 ENV/
 env/
+
+# Data files - track structure but not sensitive content
+data/*.json
+!data/users.json
+!data/portfolios.json
+!data/rates.json
+data/session.json  # Ќе отслеживаем сессии - они временные

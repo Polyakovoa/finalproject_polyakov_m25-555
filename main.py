@@ -1,6 +1,4 @@
-def main():
-    print("ValutaTrade Hub started successfully!")
-    print("Project structure is working.")
+from valutatrade_hub.cli.interface import main
 
 if __name__ == "__main__":
     main()
