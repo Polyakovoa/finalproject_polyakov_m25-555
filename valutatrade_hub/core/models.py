@@ -1,6 +1,8 @@
 import hashlib
 from datetime import datetime
 
+from .exceptions import InsufficientFundsError
+
 
 class User:
     """Класс пользователя системы валютного кошелька."""
@@ -176,7 +178,9 @@ class Wallet:
         if amount <= 0:
             raise ValueError("Сумма снятия должна быть положительной")
         if amount > self._balance:
-            return False
+            raise InsufficientFundsError(
+                self._balance, amount, self._currency_code
+            )
 
         self.balance -= amount
         return True
@@ -232,11 +236,11 @@ class Portfolio:
         """Добавляет новый кошелёк в портфель, если его ещё нет."""
         if not currency_code or not isinstance(currency_code, str):
             raise ValueError("Код валюты должен быть непустой строкой")
-        
+
         currency_code = currency_code.upper()
         if currency_code in self._wallets:
             raise ValueError(f"Кошелёк с валютой {currency_code} уже существует")
-        
+
         wallet = Wallet(currency_code, initial_balance)
         self._wallets[currency_code] = wallet
         return wallet
@@ -258,17 +262,17 @@ class Portfolio:
             'BTC': 100000.0,  # 1 BTC = 100000 USD
             'ETH': 3000.0    # 1 ETH = 3000 USD
         }
-        
+
         if base_currency not in exchange_rates:
             raise ValueError(f"Неизвестная базовая валюта: {base_currency}")
-        
+
         total_value = 0.0
-        
+
         for currency_code, wallet in self._wallets.items():
             if currency_code not in exchange_rates:
                 print(f"Предупреждение: неизвестный курс для валюты {currency_code}")
                 continue
-            
+
             # Конвертируем в базовую валюту
             if currency_code == base_currency:
                 total_value += wallet.balance
@@ -280,13 +284,13 @@ class Portfolio:
                 else:
                     value_in_base = value_in_usd
                 total_value += value_in_base
-        
+
         return round(total_value, 2)
 
     def buy_currency(
-        self, 
-        target_currency: str, 
-        amount: float, 
+        self,
+        target_currency: str,
+        amount: float,
         price: float
     ) -> bool:
         """Покупает валюту, списывая сумму с USD-кошелька."""
@@ -294,34 +298,34 @@ class Portfolio:
             raise ValueError("Сумма покупки должна быть положительной")
         if price <= 0:
             raise ValueError("Цена должна быть положительной")
-        
+
         total_cost = amount * price
-        
+
         # Получаем или создаем кошелек целевой валюты
         target_wallet = self.get_wallet(target_currency)
         if not target_wallet:
             target_wallet = self.add_currency(target_currency)
-        
+
         # Получаем USD кошелек
         usd_wallet = self.get_wallet('USD')
         if not usd_wallet:
             raise ValueError("USD кошелёк не найден для совершения покупки")
-        
+
         # Проверяем достаточно ли средств в USD кошельке
         if usd_wallet.balance < total_cost:
             return False
-        
+
         # Списываем с USD кошелька и пополняем целевой кошелек
         if usd_wallet.withdraw(total_cost):
             target_wallet.deposit(amount)
             return True
-        
+
         return False
 
     def sell_currency(
-        self, 
-        source_currency: str, 
-        amount: float, 
+        self,
+        source_currency: str,
+        amount: float,
         price: float
     ) -> bool:
         """Продает валюту, начисляя сумму на USD-кошелёк."""
@@ -329,28 +333,28 @@ class Portfolio:
             raise ValueError("Сумма продажи должна быть положительной")
         if price <= 0:
             raise ValueError("Цена должна быть положительной")
-        
+
         total_income = amount * price
-        
+
         # Получаем кошелек исходной валюты
         source_wallet = self.get_wallet(source_currency)
         if not source_wallet:
             raise ValueError(f"Кошелёк {source_currency} не найден")
-        
+
         # Получаем или создаем USD кошелек
         usd_wallet = self.get_wallet('USD')
         if not usd_wallet:
             usd_wallet = self.add_currency('USD')
-        
+
         # Проверяем достаточно ли средств в исходном кошельке
         if source_wallet.balance < amount:
             return False
-        
+
         # Списываем с исходного кошелька и пополняем USD кошелек
         if source_wallet.withdraw(amount):
             usd_wallet.deposit(total_income)
             return True
-        
+
         return False
 
     def to_dict(self) -> dict:
@@ -358,7 +362,7 @@ class Portfolio:
         wallets_dict = {}
         for currency_code, wallet in self._wallets.items():
             wallets_dict[currency_code] = wallet.to_dict()
-        
+
         return {
             "user_id": self._user_id,
             "wallets": wallets_dict
@@ -370,7 +374,7 @@ class Portfolio:
         wallets = {}
         for currency_code, wallet_data in data["wallets"].items():
             wallets[currency_code] = Wallet.from_dict(wallet_data)
-        
+
         return cls(user_id=data["user_id"], wallets=wallets)
 
     def __str__(self) -> str:

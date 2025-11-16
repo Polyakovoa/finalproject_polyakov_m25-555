@@ -4,6 +4,13 @@ from typing import Optional
 
 from prettytable import PrettyTable
 
+from ..core.exceptions import (
+    ApiRequestError,
+    AuthenticationError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+    TradingError,
+)
 from ..core.usecases import CurrencyService, SessionManager, TradingService, UserManager
 
 
@@ -125,11 +132,24 @@ class CLI:
             "get-rate": self._handle_get_rate,
         }
 
-        handler = command_handlers.get(args.command)
-        if handler:
-            handler(args)
-        else:
-            print(f"Неизвестная команда: {args.command}")
+        try:
+            handler = command_handlers.get(args.command)
+            if handler:
+                handler(args)
+            else:
+                print(f"Неизвестная команда: {args.command}")
+        except InsufficientFundsError as e:
+            print(f"Ошибка: {e}")
+        except CurrencyNotFoundError as e:
+            print(f"Ошибка: {e}")
+            self._suggest_currency_help()
+        except ApiRequestError as e:
+            print(f"Ошибка: {e}")
+            print("Повторите попытку позже или проверьте подключение к сети.")
+        except (TradingError, AuthenticationError, ValueError) as e:
+            print(f"Ошибка: {e}")
+        except Exception as e:
+            print(f"Неожиданная ошибка: {e}")
 
     def _handle_register(self, args):
         """Обрабатывает команду register."""
@@ -209,6 +229,11 @@ class CLI:
         )
         print(f"Оценочная выручка: {result['total_income']:,.2f} USD")
 
+    def _suggest_currency_help(self):
+        """Предлагает помощь по валютам при ошибке CurrencyNotFoundError.""" # noqa: E501
+        print("\nДля просмотра доступных валют используйте: get-rate --from USD --to BTC") # noqa: E501
+        print("Или попробуйте одну из популярных валют: USD, EUR, GBP, BTC, ETH")
+
     def _handle_get_rate(self, args):
         """Обрабатывает команду get-rate."""
         from_currency = getattr(args, "from_currency").upper()
@@ -241,8 +266,12 @@ class CLI:
                 reverse_rate = 1.0 / rate
                 print(f"Обратный курс {to_currency}→{from_currency}: {reverse_rate:.8f}") # noqa: E501
 
-        except ValueError:
-            print(f"Курс {from_currency}→{to_currency} недоступен. Повторите попытку позже.") # noqa: E501
+        except CurrencyNotFoundError as e:
+            raise e  # Передаем для обработки в _handle_command
+        except ApiRequestError as e:
+            raise e  # Передаем для обработки в _handle_command
+        except Exception as e:
+            raise ApiRequestError(str(e))
 
     def _handle_show_portfolio(self, args):
         """Обрабатывает команду show-portfolio."""
@@ -296,6 +325,7 @@ class CLI:
 
         print(table)
         print(f"{'ИТОГО:':>20} {total_value:,.2f} {base_currency}")
+
 
 
 def main():

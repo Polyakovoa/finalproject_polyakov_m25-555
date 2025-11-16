@@ -3,6 +3,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict
 
+from .exceptions import (
+    ApiRequestError,
+    CurrencyNotFoundError,
+    InsufficientFundsError,
+    TradingError,
+)
 from .models import Portfolio, User
 
 
@@ -143,8 +149,8 @@ class CurrencyService:
                 "EUR_USD": {"rate": 0.85, "updated_at": datetime.now().isoformat()},
                 "GBP_USD": {"rate": 0.73, "updated_at": datetime.now().isoformat()},
                 "JPY_USD": {"rate": 110.0, "updated_at": datetime.now().isoformat()},
-                "RUB_USD": {"rate": 80.0, "updated_at": datetime.now().isoformat()},
-                "BTC_USD": {"rate": 100000.0, "updated_at": datetime.now().isoformat()},
+                "RUB_USD": {"rate": 75.0, "updated_at": datetime.now().isoformat()},
+                "BTC_USD": {"rate": 50000.0, "updated_at": datetime.now().isoformat()},
                 "ETH_USD": {"rate": 3000.0, "updated_at": datetime.now().isoformat()},
                 "source": "stub",
                 "last_refresh": datetime.now().isoformat()
@@ -169,6 +175,14 @@ class CurrencyService:
         if from_currency == to_currency:
             return 1.0
 
+        # Проверяем существование валют
+        try:
+            from ..core.currencies import get_currency
+            get_currency(from_currency)
+            get_currency(to_currency)
+        except CurrencyNotFoundError as e:
+            raise CurrencyNotFoundError(e.code)
+
         rates_data = self._load_rates()
         pair_key = f"{from_currency}_{to_currency}"
 
@@ -188,7 +202,14 @@ class CurrencyService:
             if datetime.now() - updated_at < timedelta(minutes=5):
                 return 1.0 / rate_data["rate"]
 
-        # Заглушка для демонстрации
+        # Заглушка для демонстрации (имитация API)
+        try:
+            return self._get_stub_rate(from_currency, to_currency)
+        except Exception as e:
+            raise ApiRequestError(f"Сервис курсов временно недоступен: {e}")
+
+    def _get_stub_rate(self, from_currency: str, to_currency: str) -> float:
+        """Возвращает заглушечный курс (имитация внешнего API)."""
         stub_rates = {
             "USD": 1.0,
             "EUR": 0.85,
@@ -196,13 +217,16 @@ class CurrencyService:
             "JPY": 110.0,
             "RUB": 80.0,
             "BTC": 100000.0,
-            "ETH": 3000.0
+            "ETH": 3000.0,
+            "LTC": 150.0,
+            "XRP": 0.5,
+            "ADA": 0.4
         }
 
         if from_currency in stub_rates and to_currency in stub_rates:
             return stub_rates[to_currency] / stub_rates[from_currency]
 
-        raise ValueError(f"Курс {from_currency}→{to_currency} недоступен")
+        raise CurrencyNotFoundError(f"{from_currency} или {to_currency}")
 
     def update_exchange_rate(
         self,
@@ -239,20 +263,29 @@ class TradingService:
     ) -> Dict[str, Any]:
         """Покупает валюту для пользователя."""
         if amount <= 0:
-            raise ValueError("Сумма покупки должна быть положительной")
+            raise TradingError("Сумма покупки должна быть положительной")
 
         portfolio = self.user_manager.get_user_portfolio(user_id)
 
         # Получаем текущий курс
         try:
             rate = self.currency_service.get_exchange_rate(currency, "USD")
-        except ValueError:
-            raise ValueError(f"Не удалось получить курс для {currency}→USD")
+        except (ValueError, CurrencyNotFoundError) as e:
+            raise ApiRequestError(f"Не удалось получить курс для {currency}→USD: {e}")
 
         # Выполняем покупку
-        success = portfolio.buy_currency(currency, amount, rate)
-        if not success:
-            raise ValueError("Недостаточно средств в USD кошельке")
+        try:
+            success = portfolio.buy_currency(currency, amount, rate)
+            if not success:
+                raise InsufficientFundsError(
+                    portfolio.get_wallet("USD").balance,
+                    amount * rate,
+                    "USD"
+                )
+        except InsufficientFundsError:
+            raise
+        except Exception as e:
+            raise TradingError(f"Ошибка при выполнении покупки: {e}")
 
         # Сохраняем изменения
         self.user_manager.save_user_portfolio(portfolio)
@@ -275,32 +308,34 @@ class TradingService:
     ) -> Dict[str, Any]:
         """Продает валюту пользователя."""
         if amount <= 0:
-            raise ValueError("Сумма продажи должна быть положительной")
+            raise TradingError("Сумма продажи должна быть положительной")
 
         portfolio = self.user_manager.get_user_portfolio(user_id)
 
         # Проверяем существование кошелька
         wallet = portfolio.get_wallet(currency)
         if not wallet:
-            raise ValueError(f"У вас нет кошелька '{currency}'")
+            raise TradingError(f"У вас нет кошелька '{currency}'")
 
         # Проверяем достаточность средств
         if wallet.balance < amount:
-            raise ValueError(
-                f"Недостаточно средств: доступно {wallet.balance:.4f} {currency}, "
-                f"требуется {amount:.4f}"
+            raise InsufficientFundsError(
+                wallet.balance, amount, currency
             )
 
         # Получаем текущий курс
         try:
             rate = self.currency_service.get_exchange_rate(currency, "USD")
-        except ValueError:
-            raise ValueError(f"Не удалось получить курс для {currency}→USD")
+        except (ValueError, CurrencyNotFoundError) as e:
+            raise ApiRequestError(f"Не удалось получить курс для {currency}→USD: {e}")
 
         # Выполняем продажу
-        success = portfolio.sell_currency(currency, amount, rate)
-        if not success:
-            raise ValueError("Ошибка при выполнении продажи")
+        try:
+            success = portfolio.sell_currency(currency, amount, rate)
+            if not success:
+                raise TradingError("Ошибка при выполнении продажи")
+        except Exception as e:
+            raise TradingError(f"Ошибка при выполнении продажи: {e}")
 
         # Сохраняем изменения
         self.user_manager.save_user_portfolio(portfolio)
