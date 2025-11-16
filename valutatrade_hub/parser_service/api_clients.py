@@ -17,7 +17,7 @@ logger = logging.getLogger("valutatrade.parser")
 
 class BaseApiClient(ABC):
     """Абстрактный базовый класс для API клиентов."""
-    
+
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
@@ -28,10 +28,10 @@ class BaseApiClient(ABC):
     @abstractmethod
     def fetch_rates(self) -> Dict[str, float]:
         """Получает курсы валют и возвращает их в стандартизированном формате.
-        
+
         Returns:
             Dict[str, float]: Словарь с курсами в формате { "BTC_USD": 59337.21, ... }
-            
+
         Raises:
             ApiRequestError: При ошибках сети или API
         """
@@ -39,14 +39,14 @@ class BaseApiClient(ABC):
 
     def _make_request(self, url: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """Выполняет HTTP запрос с повторными попытками и обработкой ошибок.
-        
+
         Args:
             url: URL для запроса
             params: Параметры запроса
-            
+
         Returns:
             Dict[str, Any]: Ответ API в формате JSON
-            
+
         Raises:
             ApiRequestError: При неудачных попытках запроса
         """
@@ -70,7 +70,7 @@ class BaseApiClient(ABC):
                         raise ApiRequestError("Rate limit exceeded")
                 else:
                     logger.error(f"API error {response.status_code}: {response.text}")
-                    raise ApiRequestError(f"HTTP {response.status_code}: {response.text}")
+                    raise ApiRequestError(f"HTTP {response.status_code}: {response.text}") # noqa: E501
 
             except RequestException as e:
                 logger.warning(f"Request exception on attempt {attempt + 1}: {e}")
@@ -87,7 +87,7 @@ class BaseApiClient(ABC):
                 else:
                     raise ApiRequestError(f"Unexpected error: {e}")
 
-        raise ApiRequestError(f"Failed to fetch data after {config.MAX_RETRIES} attempts")
+        raise ApiRequestError(f"Failed to fetch data after {config.MAX_RETRIES} attempts") # noqa: E501
 
 
 class CoinGeckoClient(BaseApiClient):
@@ -95,24 +95,24 @@ class CoinGeckoClient(BaseApiClient):
 
     def fetch_rates(self) -> Dict[str, float]:
         """Получает курсы криптовалют относительно USD.
-        
+
         Returns:
             Dict[str, float]: Курсы в формате { "BTC_USD": 59337.21, ... }
         """
         try:
             params = config.get_coingecko_params("usd")
             data = self._make_request(config.COINGECKO_URL, params)
-            
+
             # Преобразуем данные в стандартизированный формат
             rates = {}
             for crypto_code, gecko_id in config.CRYPTO_ID_MAP.items():
                 if gecko_id in data and "usd" in data[gecko_id]:
                     rate_key = f"{crypto_code}_{config.BASE_CURRENCY}"
                     rates[rate_key] = data[gecko_id]["usd"]
-            
+
             logger.info(f"Fetched {len(rates)} crypto rates from CoinGecko")
             return rates
-            
+
         except ApiRequestError:
             raise
         except Exception as e:
@@ -124,7 +124,7 @@ class ExchangeRateApiClient(BaseApiClient):
 
     def fetch_rates(self) -> Dict[str, float]:
         """Получает курсы фиатных валют относительно USD.
-        
+
         Returns:
             Dict[str, float]: Курсы в формате { "EUR_USD": 0.85, ... }
         """
@@ -149,7 +149,7 @@ class ExchangeRateApiClient(BaseApiClient):
                 if currency != base_currency:  # Исключаем базовую валюту
                     rate_key = f"{currency}_{base_currency}"
                     rates[rate_key] = float(rate)
-            
+
             logger.info(f"Fetched {len(rates)} fiat rates from ExchangeRate-API")
             return rates
 
@@ -168,7 +168,7 @@ class RateAPIClient:
 
     def get_all_rates(self) -> Dict[str, Any]:
         """Получает все курсы валют из всех источников.
-        
+
         Returns:
             Dict[str, Any]: Объединенные данные курсов с метаданными
         """
@@ -191,7 +191,7 @@ class RateAPIClient:
         except ApiRequestError as e:
             logger.error(f"Failed to fetch fiat rates: {e}")
             metadata["sources"]["fiat"] = {
-                "source": "ExchangeRate-API-failed", 
+                "source": "ExchangeRate-API-failed",
                 "error": str(e)
             }
 
