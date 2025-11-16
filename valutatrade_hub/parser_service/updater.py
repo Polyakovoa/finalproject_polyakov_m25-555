@@ -39,28 +39,47 @@ class RateUpdater:
         try:
             # Получаем все курсы из API
             all_rates_data = self.api_client.get_all_rates()
+            logger.info(f"Received data structure: {list(all_rates_data.keys())}")
 
             # Обрабатываем фиатные курсы
-            if "rates" in all_rates_data and "base_currency" in all_rates_data:
-                fiat_stats = self._process_fiat_rates(all_rates_data)
-                stats.update(fiat_stats)
+            if "fiat_data" in all_rates_data:
+                fiat_data = all_rates_data["fiat_data"]
+                logger.info(f"Fiat data source: {fiat_data.get('source')}, rates count: {len(fiat_data.get('rates', {}))}") # noqa: E501
+                if "rates" in fiat_data and fiat_data.get("source") == "ExchangeRate-API": # noqa: E501
+                    fiat_stats = self._process_fiat_rates(fiat_data)
+                    stats["fiat_rates"] = fiat_stats["fiat_rates"]
+                    stats["total_updated"] += fiat_stats["fiat_rates"]
+                else:
+                    logger.warning(f"Invalid fiat data: source={fiat_data.get('source')}, has_rates={'rates' in fiat_data}") # noqa: E501
 
-            # Обрабатываем крипто курсы (могут быть в отдельном ключе или том же)
-            if "rates" in all_rates_data:  # CoinGecko тоже использует ключ "rates"
-                crypto_stats = self._process_crypto_rates(all_rates_data)
-                stats["crypto_rates"] = crypto_stats.get("crypto_rates", 0)
-                stats["total_updated"] += crypto_stats.get("crypto_rates", 0)
+            # Обрабатываем крипто курсы
+            if "crypto_data" in all_rates_data:
+                crypto_data = all_rates_data["crypto_data"]
+                logger.info(f"Crypto data source: {crypto_data.get('source')}, rates count: {len(crypto_data.get('rates', {}))}") # noqa: E501
+                if "rates" in crypto_data and crypto_data.get("source") == "CoinGecko":
+                    crypto_stats = self._process_crypto_rates(crypto_data)
+                    stats["crypto_rates"] = crypto_stats.get("crypto_rates", 0)
+                    stats["total_updated"] += crypto_stats.get("crypto_rates", 0)
+                else:
+                    logger.warning(f"Invalid crypto data: source={crypto_data.get('source')}, has_rates={'rates' in crypto_data}") # noqa: E501
 
-            logger.info(f"Rates update completed: {stats['total_updated']} rates updated")  # noqa: E501
+            logger.info(f"Rates update completed: {stats}")
 
         except Exception as e:
             logger.error(f"Failed to update rates: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             stats["errors"] += 1
 
         return stats
 
     def _process_fiat_rates(self, rates_data: Dict[str, Any]) -> Dict[str, Any]:
         """Обрабатывает фиатные курсы из ExchangeRate-API."""
+        # Проверяем что это данные от ExchangeRate-API
+        if rates_data.get("source") != "ExchangeRate-API":
+            logger.warning(f"Not processing fiat rates from source: {rates_data.get('source')}") # noqa: E501
+            return {"fiat_rates": 0}
+
         base_currency = rates_data["base_currency"]
         rates = rates_data["rates"]
         timestamp = rates_data["timestamp"]
@@ -68,10 +87,17 @@ class RateUpdater:
 
         stats = {"fiat_rates": 0}
 
-        for currency_code, rate in rates.items():
-            # Пропускаем базовую валюту
-            if currency_code == base_currency:
+        logger.info(f"Processing fiat rates for {base_currency}, {len(rates)} currencies available") # noqa: E501
+
+        # Обрабатываем все доступные фиатные валюты
+        target_currencies = ["EUR", "GBP", "JPY", "RUB", "CHF", "CNY"]
+
+        for currency_code in target_currencies:
+            if currency_code not in rates:
+                logger.debug(f"Currency {currency_code} not in API response")
                 continue
+
+            rate = rates[currency_code]
 
             # Валидируем код валюты
             try:
@@ -94,27 +120,32 @@ class RateUpdater:
             }
 
             try:
+                # Сохраняем курс (не сохраняем возвращаемый ID)
                 self.storage.save_rate(rate_record)
                 stats["fiat_rates"] += 1
                 self.updated_pairs.append(f"{base_currency}_{currency_code}")
-                logger.debug(f"Saved rate: {base_currency} -> {currency_code} = {rate}")
+                logger.info(f"Saved fiat rate: {base_currency} -> {currency_code} = {rate}")  # noqa: E501
             except Exception as e:
                 logger.error(f"Failed to save rate for {currency_code}: {e}")
 
+        logger.info(f"Processed {stats['fiat_rates']} fiat rates out of {len(target_currencies)} target currencies") # noqa: E501
         return stats
 
-    def _process_crypto_rates(self, rates_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _process_crypto_rates(self, crypto_data: Dict[str, Any]) -> Dict[str, Any]:
         """Обрабатывает крипто курсы из CoinGecko."""
-        # Проверяем, что это данные от CoinGecko
-        if rates_data.get("source") != "CoinGecko":
+        # Проверяем, что это данные от CoinGecko и есть курсы
+        if crypto_data.get("source") != "CoinGecko" or not crypto_data.get("rates"):
+            logger.warning(f"Not processing crypto rates from source: {crypto_data.get('source')} or no rates available")  # noqa: E501
             return {"crypto_rates": 0}
 
-        base_currency = rates_data["base_currency"]
-        rates = rates_data["rates"]
-        timestamp = rates_data["timestamp"]
-        source = rates_data["source"]
+        base_currency = crypto_data["base_currency"]
+        rates = crypto_data["rates"]
+        timestamp = crypto_data["timestamp"]
+        source = crypto_data["source"]
 
         stats = {"crypto_rates": 0}
+
+        logger.info(f"Processing crypto rates for {base_currency}, {len(rates)} currencies available") # noqa: E501
 
         for currency_code, rate in rates.items():
             # Валидируем код валюты
@@ -132,19 +163,21 @@ class RateUpdater:
                 "timestamp": timestamp,
                 "source": source,
                 "meta": {
-                    "request_ms": rates_data.get("meta", {}).get("request_ms", 0),
+                    "request_ms": crypto_data.get("meta", {}).get("request_ms", 0),
                     "status_code": 200
                 }
             }
 
             try:
+                # Сохраняем курс
                 self.storage.save_rate(rate_record)
                 stats["crypto_rates"] += 1
                 self.updated_pairs.append(f"{currency_code}_{base_currency}")
-                logger.debug(f"Saved crypto rate: {currency_code} -> {base_currency} = {rate}")  # noqa: E501
+                logger.info(f"Saved crypto rate: {currency_code} -> {base_currency} = {rate}") # noqa: E501
             except Exception as e:
                 logger.error(f"Failed to save crypto rate for {currency_code}: {e}")
 
+        logger.info(f"Processed {stats['crypto_rates']} crypto rates")
         return stats
 
     def update_local_cache(self) -> bool:

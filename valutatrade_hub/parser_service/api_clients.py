@@ -139,16 +139,39 @@ class RateAPIClient:
         try:
             # Получаем фиатные курсы
             fiat_rates = self.exchangerate_client.get_exchange_rates("USD")
+            # Используем фиатные данные как основу
             all_rates.update(fiat_rates)
+            logger.info(f"Fiat rates: {len(fiat_rates.get('rates', {}))} currencies")
         except ApiRequestError as e:
             logger.error(f"Failed to fetch fiat rates: {e}")
-            # Продолжаем работу даже если один из источников недоступен
+            # Создаем базовую структуру
+            all_rates.update({
+                "base_currency": "USD",
+                "rates": {},
+                "source": "ExchangeRate-API-failed",
+                "timestamp": datetime.utcnow().isoformat() + "Z"
+            })
 
         try:
             # Получаем крипто курсы
             crypto_rates = self.coingecko_client.get_crypto_rates("usd")
-            all_rates.update(crypto_rates)
+            logger.info(f"Crypto rates raw: {crypto_rates}")
+
+            # Возвращаем отдельно крипто данные для обработки
+            return {
+                "fiat_data": all_rates,
+                "crypto_data": crypto_rates
+            }
+
         except ApiRequestError as e:
             logger.error(f"Failed to fetch crypto rates: {e}")
-
-        return all_rates
+            # Если крипто не сработало, возвращаем только фиатные
+            return {
+                "fiat_data": all_rates,
+                "crypto_data": {
+                    "base_currency": "USD",
+                    "rates": {},
+                    "source": "CoinGecko-failed",
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                }
+            }

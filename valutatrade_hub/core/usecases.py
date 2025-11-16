@@ -187,14 +187,23 @@ class CurrencyService:
         if from_currency == to_currency:
             return 1.0
 
-        # Сначала пробуем получить курс из локального кэша
+        # 1. пробуем получить курс из исторических данных Parser Service
+        historical_rate = self._get_historical_rate(from_currency, to_currency)
+        if historical_rate is not None:
+            logger.debug(f"Using historical rate for {from_currency}->{to_currency}: {historical_rate}")
+            return historical_rate
+
+        # 2. пробуем получить курс из локального кэша
         cached_rate = self._get_cached_rate(from_currency, to_currency)
         if cached_rate is not None:
+            logger.debug(f"Using cached rate for {from_currency}->{to_currency}: {cached_rate}")
             return cached_rate
 
-        # Если в кэше нет, используем заглушку
+        # 3. или используем заглушку
         try:
-            return self._get_stub_rate(from_currency, to_currency)
+            stub_rate = self._get_stub_rate(from_currency, to_currency)
+            logger.debug(f"Using stub rate for {from_currency}->{to_currency}: {stub_rate}")
+            return stub_rate
         except Exception as e:
             raise ApiRequestError(f"Сервис курсов временно недоступен: {e}")
 
@@ -242,39 +251,45 @@ class CurrencyService:
             "SOL": 100.0,
             "DOT": 7.0
         }
-
+        
         if from_currency in stub_rates and to_currency in stub_rates:
-            return stub_rates[to_currency] / stub_rates[from_currency]
-
-        # Если валюты нет в заглушке, пробуем получить из исторических данных
-        historical_rate = self._get_historical_rate(from_currency, to_currency)
-        if historical_rate is not None:
-            return historical_rate
-
+            rate = stub_rates[to_currency] / stub_rates[from_currency]
+            logger.debug(f"Using stub rate: {from_currency}->{to_currency} = {rate}")
+            return rate
+        
+        logger.warning(f"No stub rate available for {from_currency}->{to_currency}")
         raise CurrencyNotFoundError(f"{from_currency} или {to_currency}")
-
-    def _get_historical_rate(self, from_currency: str, to_currency: str) -> Optional[float]:  # noqa: E501
+    def _get_historical_rate(self, from_currency: str, to_currency: str) -> Optional[float]:
         """Пытается получить курс из исторических данных Parser Service."""
         try:
             from ..parser_service.storage import RateStorage
             storage = RateStorage()
             latest_rates = storage.get_latest_rates("USD")
-
+            
+            logger.debug(f"Available historical rates: {list(latest_rates.keys())}")
+            
             # Если обе валюты относительно USD
             if from_currency == "USD" and to_currency in latest_rates:
-                return latest_rates[to_currency]
+                rate = latest_rates[to_currency]
+                logger.debug(f"Found USD->{to_currency}: {rate}")
+                return rate
             elif to_currency == "USD" and from_currency in latest_rates:
-                return 1.0 / latest_rates[from_currency]
+                rate = 1.0 / latest_rates[from_currency]
+                logger.debug(f"Found {from_currency}->USD: {rate}")
+                return rate
             # Если нужно конвертировать между двумя не-USD валютами
             elif from_currency in latest_rates and to_currency in latest_rates:
                 rate_from_usd = latest_rates[from_currency]
                 rate_to_usd = latest_rates[to_currency]
-                return rate_to_usd / rate_from_usd
-
+                rate = rate_to_usd / rate_from_usd
+                logger.debug(f"Calculated {from_currency}->{to_currency}: {rate} (via USD)")
+                return rate
+            
+            logger.debug(f"No historical rate found for {from_currency}->{to_currency}")
             return None
-
+            
         except Exception as e:
-            logger.debug(f"Failed to get historical rate: {e}")
+            logger.debug(f"Failed to get historical rate for {from_currency}->{to_currency}: {e}")
             return None
 
     def get_rate_info(self, from_currency: str, to_currency: str) -> Dict[str, Any]:
