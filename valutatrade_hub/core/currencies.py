@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict
+
 from .exceptions import CurrencyNotFoundError
 
 
@@ -9,7 +10,7 @@ class Currency(ABC):
     def __init__(self, name: str, code: str):
         self._validate_code(code)
         self._validate_name(name)
-        
+
         self._name = name
         self._code = code.upper()
 
@@ -115,7 +116,7 @@ _currency_registry: Dict[str, Currency] = {}
 def _initialize_currency_registry() -> None:
     """Инициализирует реестр валют предопределенными значениями."""
     global _currency_registry
-    
+
     # Фиатные валюты
     fiats = [
         FiatCurrency("US Dollar", "USD", "United States"),
@@ -126,7 +127,7 @@ def _initialize_currency_registry() -> None:
         FiatCurrency("Swiss Franc", "CHF", "Switzerland"),
         FiatCurrency("Chinese Yuan", "CNY", "China"),
     ]
-    
+
     # Криптовалюты
     cryptos = [
         CryptoCurrency("Bitcoin", "BTC", "SHA-256", 1.12e12),
@@ -134,8 +135,10 @@ def _initialize_currency_registry() -> None:
         CryptoCurrency("Litecoin", "LTC", "Scrypt", 6.5e9),
         CryptoCurrency("Ripple", "XRP", "XRP Ledger Consensus", 3.8e10),
         CryptoCurrency("Cardano", "ADA", "Ouroboros", 1.4e10),
+        CryptoCurrency("Solana", "SOL", "Proof of History", 6.5e10),
+        CryptoCurrency("Polkadot", "DOT", "Nominated Proof of Stake", 1.2e10),
     ]
-    
+
     for currency in fiats + cryptos:
         _currency_registry[currency.code] = currency
 
@@ -144,11 +147,11 @@ def get_currency(code: str) -> Currency:
     """Возвращает валюту по коду."""
     if not _currency_registry:
         _initialize_currency_registry()
-    
+
     code_upper = code.upper()
     if code_upper not in _currency_registry:
         raise CurrencyNotFoundError(f"Валюта с кодом '{code}' не найдена")
-    
+
     return _currency_registry[code_upper]
 
 

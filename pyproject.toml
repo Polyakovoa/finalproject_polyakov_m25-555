@@ -13,6 +13,7 @@ packages = [
 python = "^3.8"
 prettytable = "^3.9.0"
 toml = "^0.10.2"
+requests = "^2.31.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.1.0"
@@ -44,3 +45,10 @@ log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 session_timeout_hours = 24
 max_login_attempts = 3
 api_timeout_seconds = 30
+
+# Parser Service settings
+exchangerate_api_key = "4b468e05030488a5d11e381c"
+coingecko_api_key = ""
+rates_update_interval = 300
+api_max_retries = 3
+api_retry_delay = 1.0

@@ -14,7 +14,8 @@ from ..core.exceptions import (
     TradingError,
 )
 from ..core.usecases import CurrencyService, SessionManager, TradingService, UserManager
-
+from ..parser_service.updater import RateUpdater
+from ..parser_service.scheduler import RateScheduler
 
 class CLI:
     """Командный интерфейс для валютного кошелька."""
@@ -127,6 +128,12 @@ class CLI:
             help="Показать список поддерживаемых валют"
         )
 
+        # update-rates command
+        update_parser = subparsers.add_parser(
+            "update-rates", 
+            help="Обновить курсы валют из внешних API"
+        )
+
         args = parser.parse_args()
 
         if not args.command:
@@ -150,6 +157,7 @@ class CLI:
             "sell": self._handle_sell,
             "get-rate": self._handle_get_rate,
             "list-currencies": self._handle_list_currencies,
+            "update-rates": self._handle_update_rates,
         }
 
         try:
@@ -172,6 +180,33 @@ class CLI:
         except Exception as e:
             print(f"💥 Неожиданная ошибка: {e}")
             print("   Пожалуйста, сообщите об этой ошибке разработчикам.")
+
+    def _handle_update_rates(self, args):
+        """Обрабатывает команду update-rates."""
+        print("🔄 Обновление курсов валют...")
+        
+        try:
+            updater = RateUpdater()
+            
+            # Выполняем обновление
+            stats = updater.update_rates()
+            
+            if stats["total_updated"] > 0:
+                # Обновляем локальный кэш
+                success = updater.update_local_cache()
+                if success:
+                    print(f"✅ Курсы обновлены успешно!")
+                    print(f"   📊 Обновлено пар: {stats['total_updated']}")
+                    print(f"   💵 Фиатные валюты: {stats.get('fiat_rates', 0)}")
+                    print(f"   ₿ Криптовалюты: {stats.get('crypto_rates', 0)}")
+                    print(f"   ⚠️ Ошибки: {stats.get('errors', 0)}")
+                else:
+                    print("❌ Не удалось обновить локальный кэш")
+            else:
+                print("ℹ️  Новые курсы не получены (возможно, временные проблемы с API)")
+                
+        except Exception as e:
+            print(f"❌ Ошибка при обновлении курсов: {e}")
 
     def _suggest_currency_help(self):
         """Предлагает помощь по валютам при ошибке CurrencyNotFoundError."""
