@@ -156,32 +156,32 @@ class CurrencyService:
             initial_rates = {
                 "pairs": {
                     "EUR_USD": {
-                        "rate": 0.85,
+                        "rate": 1.16,
                         "updated_at": datetime.now().isoformat() + "Z",
                         "source": "stub",
                     },
                     "GBP_USD": {
-                        "rate": 0.73,
+                        "rate": 1.28,
                         "updated_at": datetime.now().isoformat() + "Z",
                         "source": "stub",
                     },
                     "JPY_USD": {
-                        "rate": 110.0,
+                        "rate": 0.0065,
                         "updated_at": datetime.now().isoformat() + "Z",
                         "source": "stub",
                     },
                     "RUB_USD": {
-                        "rate": 80.0,
+                        "rate": 0.011,
                         "updated_at": datetime.now().isoformat() + "Z",
                         "source": "stub",
                     },
                     "BTC_USD": {
-                        "rate": 100000.0,
+                        "rate": 95000.0,
                         "updated_at": datetime.now().isoformat() + "Z",
                         "source": "stub",
                     },
                     "ETH_USD": {
-                        "rate": 3000.0,
+                        "rate": 3200.0,
                         "updated_at": datetime.now().isoformat() + "Z",
                         "source": "stub",
                     },
@@ -286,25 +286,31 @@ class CurrencyService:
 
     def _get_stub_rate(self, from_currency: str, to_currency: str) -> float:
         """Возвращает заглушечный курс (используется как fallback)."""
+
         stub_rates = {
-            "USD": 1.0,
-            "EUR": 0.85,
-            "GBP": 0.73,
-            "JPY": 110.0,
-            "RUB": 80.0,
-            "BTC": 100000.0,
-            "ETH": 3000.0,
-            "LTC": 150.0,
-            "XRP": 0.5,
-            "ADA": 0.4,
-            "SOL": 100.0,
-            "DOT": 7.0,
+            "USD_USD": 1.0,
+            "EUR_USD": 1.16,
+            "GBP_USD": 1.28,
+            "JPY_USD": 0.0065,
+            "RUB_USD": 0.011,
+            "BTC_USD": 95000.0,
+            "ETH_USD": 3200.0,
+            "LTC_USD": 100.0,
+            "XRP_USD": 2.2,
+            "ADA_USD": 0.5,
+            "SOL_USD": 140.0,
+            "DOT_USD": 2.8,
         }
 
-        if from_currency in stub_rates and to_currency in stub_rates:
-            rate = stub_rates[to_currency] / stub_rates[from_currency]
-            logger.debug(f"Using stub rate: {from_currency}->{to_currency} = {rate}")
-            return rate
+        # Прямой поиск пары
+        pair_key = f"{from_currency}_{to_currency}"
+        if pair_key in stub_rates:
+            return stub_rates[pair_key]
+
+        # Обратный поиск пары (инверсия)
+        reverse_key = f"{to_currency}_{from_currency}"
+        if reverse_key in stub_rates:
+            return 1.0 / stub_rates[reverse_key]
 
         logger.warning(f"No stub rate available for {from_currency}->{to_currency}")
         raise CurrencyNotFoundError(f"{from_currency} или {to_currency}")

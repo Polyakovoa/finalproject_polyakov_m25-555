@@ -16,82 +16,79 @@ ValutaTrade Hub - это полнофункциональное консольн
 - Python 3.8+
 - Poetry
 
-### Установка
-
-# Клонирование репозитория
+### Клонирование репозитория
 git clone <repository-url>
 cd finalproject_polyakov_m25-555
 
-# Установка зависимостей
+### Установка зависимостей
 make install
-# или
+или
 poetry install
-Запуск
-bash
-# Через Makefile
+
+### Запуск через Makefile
 make project
 
-# Через Poetry
+### Через Poetry
 poetry run project
 или poetry run valutatrade
 
-# Прямой вызов
+### Прямой вызов
 poetry run python main.py
 
 ## 💻 Команды CLI
 Управление пользователями
 
-# Регистрация (с приветственным бонусом 300 USD!)
+### Регистрация (с приветственным бонусом 300 USD!)
 valutatrade register --username alice --password 1234
 
-# Вход в систему
+### Вход в систему
 valutatrade login --username alice --password 1234
 
-# Выход
+### Выход
 valutatrade logout
 Портфель и торговля
 
-# Показать портфель (база USD)
+### Показать портфель (база USD)
 valutatrade show-portfolio
 
-# Показать портфель в другой валюте
+### Показать портфель в другой валюте
 valutatrade show-portfolio --base EUR
 
-# Купить валюту
+### Купить валюту
 valutatrade buy --currency EUR --amount 100
 
-# Продать валюту
+### Продать валюту
 valutatrade sell --currency BTC --amount 0.1
 
-# Пополнить баланс
+### Пополнить баланс
 valutatrade add-funds --amount 500
 Курсы валют
 
-# Получить курс для пары валют
+### Получить курс для пары валют
 valutatrade get-rate --from USD --to EUR
 valutatrade get-rate --from BTC --to USD
 
-# Показать все курсы из кэша
+### Показать все курсы из кэша
 valutatrade show-rates
 
-# Показать топ криптовалют
+### Показать топ криптовалют
 valutatrade show-rates --top 3
 
-# Показать курсы для конкретной валюты
+### Показать курсы для конкретной валюты
 valutatrade show-rates --currency EUR
 
-# Показать курсы в другой базовой валюте
+### Показать курсы в другой базовой валюте
 valutatrade show-rates --base EUR
 Парсер курсов
 
-# Обновить все курсы
+### Обновить все курсы
 valutatrade update-rates
 
-# Обновить только из определенного источника
+### Обновить только из определенного источника
 valutatrade update-rates --source coingecko
 valutatrade update-rates --source exchangerate
 
-# Список поддерживаемых валют
+### Список поддерживаемых валют
 valutatrade list-currencies
 
 ## ⚙️ Настройка API

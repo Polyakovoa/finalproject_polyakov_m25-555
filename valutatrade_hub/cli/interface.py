@@ -507,7 +507,7 @@ class CLI:
             print(
                 f"   💰 Куплено: {result['amount']:.4f} {result['currency']} ({result['currency_name']})"  # noqa: E501
             )
-            print(f"   📈 Курс: {result['rate']:.4f} USD/{result['currency']}")
+            print(f"   📈 Курс: {result['rate']:.4f} {result['currency']}/USD")
             print(f"   💵 Стоимость: {result['total_cost']:,.2f} USD")
             print("   📊 Изменения баланса:")
             print(
@@ -539,7 +539,7 @@ class CLI:
             print(
                 f"   💰 Продано: {result['amount']:.4f} {result['currency']} ({result['currency_name']})"  # noqa: E501
             )
-            print(f"   📈 Курс: {result['rate']:.4f} USD/{result['currency']}")
+            print(f"   📈 Курс: {result['rate']:.4f} {result['currency']}/USD")
             print(f"   💵 Выручка: {result['total_income']:,.2f} USD")
             print("   📊 Изменения баланса:")
             print(
