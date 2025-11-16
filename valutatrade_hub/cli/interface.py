@@ -164,6 +164,18 @@ class CLI:
             help="Базовая валюта для отображения курсов"
         )
 
+        # add-funds command
+        funds_parser = subparsers.add_parser(
+            "add-funds",
+            help="Пополнить баланс (только для USD)"
+        )
+        funds_parser.add_argument(
+            "--amount",
+            type=float,
+            required=True,
+            help="Сумма пополнения в USD"
+        )
+
         args = parser.parse_args()
 
         if not args.command:
@@ -175,6 +187,33 @@ class CLI:
         except Exception as e:
             print(f"Ошибка: {e}")
             sys.exit(1)
+
+    def _handle_add_funds(self, args):
+        """Обрабатывает команду add-funds."""
+        if not self.current_user:
+            raise AuthenticationError("Сначала выполните login")
+
+        if args.amount <= 0:
+            raise TradingError("Сумма пополнения должна быть положительной")
+
+        user_id = self.current_user["id"]
+        portfolio = self.user_manager.get_user_portfolio(user_id)
+
+        # Получаем или создаем USD кошелек
+        usd_wallet = portfolio.get_wallet('USD')
+        if not usd_wallet:
+            usd_wallet = portfolio.add_currency('USD', 0.0)
+
+        old_balance = usd_wallet.balance
+        new_balance = old_balance + args.amount
+
+        # Пополняем баланс
+        usd_wallet.balance = new_balance
+        self.user_manager.save_user_portfolio(portfolio)
+
+        print("✅ Баланс успешно пополнен!")
+        print(f"   💰 Пополнено: {args.amount:.2f} USD")
+        print(f"   📊 Баланс USD: {old_balance:.2f} → {new_balance:.2f}")
 
     def _handle_command(self, args):
         """Обрабатывает команды."""
@@ -189,6 +228,7 @@ class CLI:
             "list-currencies": self._handle_list_currencies,
             "update-rates": self._handle_update_rates,
             "show-rates": self._handle_show_rates,
+            "add-funds": self._handle_add_funds,
         }
 
         try:
