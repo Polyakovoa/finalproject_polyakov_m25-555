@@ -33,9 +33,7 @@ env/
 secrets.json
 config.local.json
 
-data/*.json
-!data/users.json
-!data/portfolios.json
-
-data/session.json
-data/rates.json
+# Игнорировать все в data/ кроме README или конфигов
+data/*
+!data/README.md
+!data/.gitkeep

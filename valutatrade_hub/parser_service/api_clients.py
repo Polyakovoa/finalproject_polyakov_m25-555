@@ -123,11 +123,7 @@ class ExchangeRateApiClient(BaseApiClient):
     """Клиент для работы с ExchangeRate-API (фиатные валюты)."""
 
     def fetch_rates(self) -> Dict[str, float]:
-        """Получает курсы фиатных валют относительно USD.
-
-        Returns:
-            Dict[str, float]: Курсы в формате { "EUR_USD": 0.85, ... }
-        """
+        """Получает курсы фиатных валют относительно USD."""
         try:
             url = config.get_exchangerate_url("USD")
             data = self._make_request(url)
@@ -142,22 +138,25 @@ class ExchangeRateApiClient(BaseApiClient):
             if not rates_data:
                 raise ApiRequestError("ExchangeRate-API response missing rates data")
 
-            # Преобразуем в стандартизированный формат
+            # ФИКС: ИНВЕРТИРУЕМ КУРСЫ ДЛЯ ФИАТНЫХ ВАЛЮТ
             rates = {}
             base_currency = data.get("base_code", "USD")
-            for currency, rate in rates_data.items():
-                if currency != base_currency:  # Исключаем базовую валюту
-                    rate_key = f"{currency}_{base_currency}"
-                    rates[rate_key] = float(rate)
 
-            logger.info(f"Fetched {len(rates)} fiat rates from ExchangeRate-API")
+            for currency in config.FIAT_CURRENCIES:
+                if currency in rates_data and currency != base_currency:
+                    rate_key = f"{currency}_{base_currency}"
+                    # ИНВЕРСИЯ: 1 / курс, чтобы получить "количество USD за 1 валюту"
+                    original_rate = float(rates_data[currency])
+                    inverted_rate = 1.0 / original_rate
+                    rates[rate_key] = inverted_rate
+
+            logger.info(f"Fetched {len(rates)} fiat rates from ExchangeRate-API (inverted from {len(rates_data)} available)") # noqa: E501
             return rates
 
         except ApiRequestError:
             raise
         except Exception as e:
             raise ApiRequestError(f"Failed to parse ExchangeRate-API response: {e}")
-
 
 class RateAPIClient:
     """Общий клиент для работы со всеми API курсов."""

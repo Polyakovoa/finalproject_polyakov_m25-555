@@ -1,7 +1,8 @@
 """Вспомогательные функции для работы с валютами."""
 
 from typing import Optional
-from .currencies import get_currency, CurrencyNotFoundError
+
+from .currencies import CurrencyNotFoundError, get_currency
 from .exceptions import InvalidCurrencyError
 
 
@@ -31,9 +32,9 @@ def get_currency_display_info(code: str) -> Optional[str]:
 
 
 def convert_amount(
-    amount: float, 
-    from_currency: str, 
-    to_currency: str, 
+    amount: float,
+    from_currency: str,
+    to_currency: str,
     exchange_rate: float
 ) -> float:
     """Конвертирует сумму из одной валюты в другую."""
@@ -41,5 +42,5 @@ def convert_amount(
         raise ValueError("Сумма для конвертации не может быть отрицательной")
     if exchange_rate <= 0:
         raise ValueError("Курс обмена должен быть положительным")
-    
+
     return amount * exchange_rate

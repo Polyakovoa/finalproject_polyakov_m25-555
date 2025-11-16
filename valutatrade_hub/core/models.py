@@ -288,9 +288,9 @@ class Portfolio:
         return round(total_value, 2)
 
     def buy_currency(
-        self, 
-        target_currency: str, 
-        amount: float, 
+        self,
+        target_currency: str,
+        amount: float,
         price: float
     ) -> bool:
         """Покупает валюту, списывая сумму с USD-кошелька."""
@@ -298,29 +298,29 @@ class Portfolio:
             raise ValueError("Сумма покупки должна быть положительной")
         if price <= 0:
             raise ValueError("Цена должна быть положительной")
-        
+
         total_cost = amount * price
-        
+
         # Получаем или создаем кошелек целевой валюты
         target_wallet = self.get_wallet(target_currency)
         if not target_wallet:
             target_wallet = self.add_currency(target_currency)
-        
+
         # Получаем USD кошелек (должен существовать после исправлений выше)
         usd_wallet = self.get_wallet('USD')
         if not usd_wallet:
             # Если USD кошелька нет, создаем его с нулевым балансом
             usd_wallet = self.add_currency('USD', 0.0)
-        
+
         # Проверяем достаточно ли средств в USD кошельке
         if usd_wallet.balance < total_cost:
             return False
-        
+
         # Списываем с USD кошелька и пополняем целевой кошелек
         if usd_wallet.withdraw(total_cost):
             target_wallet.deposit(amount)
             return True
-        
+
         return False
 
     def sell_currency(

@@ -1,14 +1,14 @@
 """Модуль для работы с хранилищем исторических данных курсов."""
 
 import json
-import os
-import tempfile
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
 from ..infra.settings import settings
 
+logger = logging.getLogger("valutatrade.parser")
 
 class RateStorage:
     """Класс для работы с хранилищем исторических данных курсов."""
@@ -39,20 +39,13 @@ class RateStorage:
             return []
 
     def _save_history(self, data: List[Dict[str, Any]]) -> None:
-        """Сохраняет исторические данные в файл атомарно."""
-        # Создаем временный файл для атомарной записи
-        temp_fd, temp_path = tempfile.mkstemp(dir=self.data_dir, suffix='.tmp')
+        """Сохраняет исторические данные в файл."""
         try:
-            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+            # Простая запись в файл вместо атомарной замены
+            with open(self.history_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
-            # Атомарно заменяем старый файл новым
-            os.replace(temp_path, self.history_file)
-        except Exception:
-            # В случае ошибки удаляем временный файл
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass
+        except Exception as e:
+            logger.error(f"Failed to save history: {e}")
             raise
 
     def save_rate(self, rate_data: Dict[str, Any]) -> str:

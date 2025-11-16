@@ -291,6 +291,7 @@ class CLI:
     def _filter_rates(self, pairs: dict, args) -> list:
         """Применяет фильтры к списку курсов."""
         filtered = []
+        target_base = args.base.upper()
 
         for pair_key, rate_data in pairs.items():
             from_currency, to_currency = pair_key.split("_")
@@ -298,16 +299,36 @@ class CLI:
             # Фильтр по валюте
             if args.currency:
                 currency_upper = args.currency.upper()
-                if from_currency != currency_upper and to_currency != currency_upper:
+                if from_currency != currency_upper:
                     continue
 
-            # Фильтр по базовой валюте
-            if args.base.upper() != "USD":
-                # Пропускаем пары, не относящиеся к выбранной базе
-                if to_currency != args.base.upper():
-                    continue
+            # Если базовая валюта USD - показываем как есть
+            if target_base == "USD":
+                filtered.append((pair_key, rate_data))
+            else:
+                # Для других базовых валют нужна конвертация
+                if to_currency == "USD" and from_currency != target_base:
+                    # Пытаемся найти курс USD к целевой базе
+                    usd_to_base_pair = f"USD_{target_base}"
+                    base_to_usd_pair = f"{target_base}_USD"
 
-            filtered.append((pair_key, rate_data))
+                    if usd_to_base_pair in pairs:
+                        # Прямой курс найден
+                        usd_to_base_rate = pairs[usd_to_base_pair]["rate"]
+                        converted_rate = rate_data["rate"] * usd_to_base_rate
+                        converted_pair = f"{from_currency}_{target_base}"
+                        converted_data = rate_data.copy()
+                        converted_data["rate"] = converted_rate
+                        filtered.append((converted_pair, converted_data))
+                    elif base_to_usd_pair in pairs:
+                        # Обратный курс найден - конвертируем через него
+                        base_to_usd_rate = pairs[base_to_usd_pair]["rate"]
+                        usd_to_base_rate = 1.0 / base_to_usd_rate
+                        converted_rate = rate_data["rate"] * usd_to_base_rate
+                        converted_pair = f"{from_currency}_{target_base}"
+                        converted_data = rate_data.copy()
+                        converted_data["rate"] = converted_rate
+                        filtered.append((converted_pair, converted_data))
 
         return filtered
 

@@ -1,9 +1,0 @@
-[
-  {
-    "user_id": 1,
-    "username": "testuser5",
-    "hashed_password": "8623ec863dc262a80bcac183e9c4d3fec731febc14922f95c5e98886b80c4cd0",
-    "salt": "2fb8922e1eccbdbe",
-    "registration_date": "2025-11-16T14:16:16.085148"
-  }
-]
