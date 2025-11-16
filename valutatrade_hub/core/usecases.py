@@ -75,11 +75,12 @@ class UserManager:
         users_data.append(user.to_dict())
         self._save_users(users_data)
 
-        # Создаем портфель с USD кошельком
+        # Создаем портфель с USD кошельком и ПРИВЕТСТВЕННЫМ БОНУСОМ
         portfolios_data = self._load_portfolios()
+        WELCOME_BONUS = 300.0  # Приветственный бонус
         portfolios_data[str(user_id)] = {
             "wallets": {
-                "USD": {"currency_code": "USD", "balance": 0.0}
+                "USD": {"currency_code": "USD", "balance": WELCOME_BONUS}
             }
         }
         self._save_portfolios(portfolios_data)

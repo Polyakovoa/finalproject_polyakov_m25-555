@@ -395,6 +395,7 @@ class CLI:
         """Обрабатывает команду register."""
         user = self.user_manager.register_user(args.username, args.password)
         print(f"✅ Пользователь '{user.username}' зарегистрирован (id={user.user_id}).")
+        print("🎉 Спасибо за регистрацию! Приветственный бонус - 300 USD!")
         print(f"   🔑 Войдите в систему: valutatrade login --username {user.username} --password ****") # noqa: E501
 
     def _handle_login(self, args):
