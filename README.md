@@ -123,12 +123,13 @@ USD, EUR, GBP, JPY, RUB, CHF, CNY
 BTC, ETH, LTC, XRP, ADA, SOL, DOT
 
 ## 🎨 Архитектурные особенности
-Слоистая архитектура: разделение на core/infra/parser/cli
-Синглтоны: SettingsLoader, DatabaseManager
-Декораторы: @log_action, @measure_time, @cache_result
-Исключения: кастомные исключения для доменной логики
-Конфигурация: централизованная через dataclasses
+- Слоистая архитектура: разделение на core/infra/parser/cli
+- Синглтоны: SettingsLoader, DatabaseManager
+- Декораторы: @log_action, @measure_time, @cache_result
+- Исключения: кастомные исключения для доменной логики
+- Конфигурация: централизованная через dataclasses
 
 ## Демонстрация функционала в Asciinema:
-
+https://asciinema.org/a/DftiXhnIV51wo2d9ZR0VFGGz1
+*Полная демонстрация функционала: регистрация, торговые операции, управление портфелем, обновление курсов и обработка ошибок.*
 
