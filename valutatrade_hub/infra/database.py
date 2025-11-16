@@ -10,8 +10,6 @@ from .settings import settings
 class DatabaseManager:
     """
     Менеджер базы данных с гарантией единственного экземпляра (Singleton).
-
-    Обеспечивает абстракцию над JSON-хранилищем с кешированием.
     """
 
     _instance: Optional['DatabaseManager'] = None

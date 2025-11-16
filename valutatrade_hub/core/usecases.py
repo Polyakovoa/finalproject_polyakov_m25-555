@@ -3,14 +3,12 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict
 
+from ..decorators import cache_result, log_action, measure_time, retry_on_failure
 from ..infra.database import db
 from ..infra.settings import settings
-from .exceptions import (
-    ApiRequestError,
-    CurrencyNotFoundError,
-    InsufficientFundsError,
-    TradingError,
-)
+from .currencies import CurrencyNotFoundError, get_currency
+from .exceptions import ApiRequestError, InsufficientFundsError, TradingError
+from .exceptions import CurrencyNotFoundError as CurrencyNotFoundExc
 from .models import Portfolio, User
 
 
@@ -18,17 +16,16 @@ class UserManager:
     """Менеджер для работы с пользователями."""
 
     def __init__(self):
-        # Используем настройки из синглтона
         self.data_dir = Path(settings.get("data_dir", "data"))
         self._ensure_data_files()
 
     def _ensure_data_files(self) -> None:
         """Создает необходимые файлы данных, если они не существуют."""
-        # Используем DatabaseManager для создания базовой структуры
         if not db.load("users"):
             db.save("users", [])
 
-        if not db.load("portfolios"):
+        portfolios_data = db.load("portfolios")
+        if not portfolios_data:
             db.save("portfolios", {})
 
     def _load_users(self) -> list:
@@ -47,6 +44,7 @@ class UserManager:
         """Сохраняет портфели в JSON."""
         db.save("portfolios", portfolios_data)
 
+    @log_action("REGISTER", verbose=True)
     def register_user(self, username: str, password: str) -> User:
         """Регистрирует нового пользователя."""
         if not username or not username.strip():
@@ -74,13 +72,18 @@ class UserManager:
         users_data.append(user.to_dict())
         self._save_users(users_data)
 
-        # Создаем пустой профиль
+        # Создаем портфель с USD кошельком
         portfolios_data = self._load_portfolios()
-        portfolios_data[str(user_id)] = {"wallets": {}}
+        portfolios_data[str(user_id)] = {
+            "wallets": {
+                "USD": {"currency_code": "USD", "balance": 0.0}
+            }
+        }
         self._save_portfolios(portfolios_data)
 
         return user
 
+    @log_action("LOGIN", verbose=True)
     def authenticate_user(self, username: str, password: str) -> User:
         """Аутентифицирует пользователя."""
         if not username or not password:
@@ -99,14 +102,28 @@ class UserManager:
         raise ValueError(f"Пользователь '{username}' не найден")
 
     def get_user_portfolio(self, user_id: int) -> Portfolio:
-        """Возвращает профиль пользователя."""
+        """Возвращает портфель пользователя."""
         portfolios_data = self._load_portfolios()
         user_portfolio_data = portfolios_data.get(str(user_id))
 
         if not user_portfolio_data:
-            # Создаем пустой профиль, если не существует
-            user_portfolio_data = {"wallets": {}}
+            # Создаем портфель с USD кошельком
+            user_portfolio_data = {
+                "wallets": {
+                    "USD": {"currency_code": "USD", "balance": 0.0}
+                }
+            }
             portfolios_data[str(user_id)] = user_portfolio_data
+            self._save_portfolios(portfolios_data)
+        elif "wallets" not in user_portfolio_data:
+            # Если wallets отсутствует, создаем с USD кошельком
+            user_portfolio_data["wallets"] = {
+                "USD": {"currency_code": "USD", "balance": 0.0}
+            }
+            self._save_portfolios(portfolios_data)
+        elif "USD" not in user_portfolio_data["wallets"]:
+            # Если нет USD кошелька, добавляем его
+            user_portfolio_data["wallets"]["USD"] = {"currency_code": "USD", "balance": 0.0} # noqa: E501
             self._save_portfolios(portfolios_data)
 
         return Portfolio.from_dict({
@@ -115,7 +132,7 @@ class UserManager:
         })
 
     def save_user_portfolio(self, portfolio: Portfolio) -> None:
-        """Сохраняет профиль пользователя."""
+        """Сохраняет портфель пользователя."""
         portfolios_data = self._load_portfolios()
         portfolios_data[str(portfolio.user_id)] = portfolio.to_dict()
         self._save_portfolios(portfolios_data)
@@ -125,7 +142,6 @@ class CurrencyService:
     """Сервис для работы с курсами валют."""
 
     def __init__(self):
-        # Используем настройки из синглтона
         self.data_dir = Path(settings.get("data_dir", "data"))
         self.rates_ttl = timedelta(seconds=settings.get("rates_ttl_seconds", 300))
         self._ensure_rates_file()
@@ -154,18 +170,22 @@ class CurrencyService:
         """Сохраняет курсы валют в JSON."""
         db.save("rates", rates_data)
 
+    @cache_result(ttl_seconds=300)
+    @retry_on_failure(max_attempts=3, delay=1.0)
+    @measure_time
+    @log_action("GET_RATE", verbose=True)
     def get_exchange_rate(self, from_currency: str, to_currency: str) -> float:
         """Возвращает курс обмена между валютами."""
-        if from_currency == to_currency:
-            return 1.0
-
-        # Проверяем существование валют
+        # Валидация кодов валют
         try:
-            from .currencies import get_currency
+            # Просто проверяем существование валют, не сохраняя объекты
             get_currency(from_currency)
             get_currency(to_currency)
         except CurrencyNotFoundError as e:
-            raise CurrencyNotFoundError(e.code)
+            raise CurrencyNotFoundExc(e.code)
+
+        if from_currency == to_currency:
+            return 1.0
 
         rates_data = self._load_rates()
         pair_key = f"{from_currency}_{to_currency}"
@@ -188,7 +208,10 @@ class CurrencyService:
 
         # Заглушка для демонстрации (имитация API)
         try:
-            return self._get_stub_rate(from_currency, to_currency)
+            rate = self._get_stub_rate(from_currency, to_currency)
+            # Обновляем кеш с новым курсом
+            self.update_exchange_rate(from_currency, to_currency, rate)
+            return rate
         except Exception as e:
             raise ApiRequestError(f"Сервис курсов временно недоступен: {e}")
 
@@ -231,6 +254,23 @@ class CurrencyService:
 
         self._save_rates(rates_data)
 
+    def get_rate_info(self, from_currency: str, to_currency: str) -> Dict[str, Any]:
+        """Возвращает информацию о курсе включая время обновления."""
+        rate = self.get_exchange_rate(from_currency, to_currency)
+        rates_data = self._load_rates()
+        pair_key = f"{from_currency}_{to_currency}"
+
+        updated_at = rates_data.get(pair_key, {}).get("updated_at")
+        if not updated_at:
+            updated_at = datetime.now().isoformat()
+
+        return {
+            "from_currency": from_currency,
+            "to_currency": to_currency,
+            "rate": rate,
+            "updated_at": updated_at
+        }
+
 
 class TradingService:
     """Сервис для торговых операций."""
@@ -239,6 +279,8 @@ class TradingService:
         self.user_manager = user_manager
         self.currency_service = currency_service
 
+    @log_action("BUY", verbose=True)
+    @measure_time
     def buy_currency(
         self,
         user_id: int,
@@ -246,28 +288,53 @@ class TradingService:
         amount: float
     ) -> Dict[str, Any]:
         """Покупает валюту для пользователя."""
+        # Валидация входных данных
         if amount <= 0:
             raise TradingError("Сумма покупки должна быть положительной")
+
+        # Валидация кода валюты
+        try:
+            currency_obj = get_currency(currency)
+        except CurrencyNotFoundError as e:
+            raise CurrencyNotFoundExc(e.code)
 
         portfolio = self.user_manager.get_user_portfolio(user_id)
 
         # Получаем текущий курс
         try:
             rate = self.currency_service.get_exchange_rate(currency, "USD")
-        except (ValueError, CurrencyNotFoundError) as e:
+        except (CurrencyNotFoundExc, ApiRequestError) as e:
+            raise e
+        except Exception as e:
             raise ApiRequestError(f"Не удалось получить курс для {currency}→USD: {e}")
+
+        total_cost = amount * rate
+
+        # Получаем или создаем кошелек целевой валюты
+        target_wallet = portfolio.get_wallet(currency)
+        old_target_balance = target_wallet.balance if target_wallet else 0.0
+
+        if not target_wallet:
+            target_wallet = portfolio.add_currency(currency, 0.0)
+
+        # Получаем USD кошелек
+        usd_wallet = portfolio.get_wallet('USD')
+        old_usd_balance = usd_wallet.balance if usd_wallet else 0.0
+
+        if not usd_wallet:
+            raise TradingError("USD кошелёк не найден")
+
+        # Проверяем достаточно ли средств в USD кошельке
+        if usd_wallet.balance < total_cost:
+            raise InsufficientFundsError(
+                usd_wallet.balance, total_cost, "USD"
+            )
 
         # Выполняем покупку
         try:
             success = portfolio.buy_currency(currency, amount, rate)
             if not success:
-                raise InsufficientFundsError(
-                    portfolio.get_wallet("USD").balance,
-                    amount * rate,
-                    "USD"
-                )
-        except InsufficientFundsError:
-            raise
+                raise TradingError("Не удалось выполнить покупку")
         except Exception as e:
             raise TradingError(f"Ошибка при выполнении покупки: {e}")
 
@@ -277,13 +344,18 @@ class TradingService:
         return {
             "success": True,
             "currency": currency,
+            "currency_name": currency_obj.name,
             "amount": amount,
             "rate": rate,
-            "total_cost": amount * rate,
-            "old_balance": portfolio.get_wallet(currency).balance - amount,
-            "new_balance": portfolio.get_wallet(currency).balance
+            "total_cost": total_cost,
+            "old_balance": old_target_balance,
+            "new_balance": target_wallet.balance,
+            "old_usd_balance": old_usd_balance,
+            "new_usd_balance": usd_wallet.balance
         }
 
+    @log_action("SELL", verbose=True)
+    @measure_time
     def sell_currency(
         self,
         user_id: int,
@@ -291,33 +363,53 @@ class TradingService:
         amount: float
     ) -> Dict[str, Any]:
         """Продает валюту пользователя."""
+        # Валидация входных данных
         if amount <= 0:
             raise TradingError("Сумма продажи должна быть положительной")
+
+        # Валидация кода валюты
+        try:
+            currency_obj = get_currency(currency)
+        except CurrencyNotFoundError as e:
+            raise CurrencyNotFoundExc(e.code)
 
         portfolio = self.user_manager.get_user_portfolio(user_id)
 
         # Проверяем существование кошелька
-        wallet = portfolio.get_wallet(currency)
-        if not wallet:
+        source_wallet = portfolio.get_wallet(currency)
+        if not source_wallet:
             raise TradingError(f"У вас нет кошелька '{currency}'")
 
+        old_source_balance = source_wallet.balance
+
         # Проверяем достаточность средств
-        if wallet.balance < amount:
+        if source_wallet.balance < amount:
             raise InsufficientFundsError(
-                wallet.balance, amount, currency
+                source_wallet.balance, amount, currency
             )
 
         # Получаем текущий курс
         try:
             rate = self.currency_service.get_exchange_rate(currency, "USD")
-        except (ValueError, CurrencyNotFoundError) as e:
+        except (CurrencyNotFoundExc, ApiRequestError) as e:
+            raise e
+        except Exception as e:
             raise ApiRequestError(f"Не удалось получить курс для {currency}→USD: {e}")
+
+        total_income = amount * rate
+
+        # Получаем USD кошелек
+        usd_wallet = portfolio.get_wallet('USD')
+        old_usd_balance = usd_wallet.balance if usd_wallet else 0.0
+
+        if not usd_wallet:
+            usd_wallet = portfolio.add_currency('USD', 0.0)
 
         # Выполняем продажу
         try:
             success = portfolio.sell_currency(currency, amount, rate)
             if not success:
-                raise TradingError("Ошибка при выполнении продажи")
+                raise TradingError("Не удалось выполнить продажу")
         except Exception as e:
             raise TradingError(f"Ошибка при выполнении продажи: {e}")
 
@@ -327,12 +419,16 @@ class TradingService:
         return {
             "success": True,
             "currency": currency,
+            "currency_name": currency_obj.name,
             "amount": amount,
             "rate": rate,
-            "total_income": amount * rate,
-            "old_balance": wallet.balance + amount,
-            "new_balance": wallet.balance
+            "total_income": total_income,
+            "old_balance": old_source_balance,
+            "new_balance": source_wallet.balance,
+            "old_usd_balance": old_usd_balance,
+            "new_usd_balance": usd_wallet.balance
         }
+
 
 class SessionManager:
     """Менеджер для управления сессиями пользователей."""
@@ -348,6 +444,7 @@ class SessionManager:
         if not self.session_file.exists():
             self.session_file.write_text('{}', encoding='utf-8')
 
+    @log_action("CREATE_SESSION")
     def create_session(self, user_id: int, username: str) -> None:
         """Создает сессию для пользователя."""
         session_data = {
@@ -375,6 +472,7 @@ class SessionManager:
         except (json.JSONDecodeError, FileNotFoundError, KeyError):
             return {}
 
+    @log_action("CLEAR_SESSION")
     def clear_session(self) -> None:
         """Очищает текущую сессию."""
         with open(self.session_file, 'w', encoding='utf-8') as f:
