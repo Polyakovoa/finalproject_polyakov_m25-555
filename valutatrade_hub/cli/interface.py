@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 from datetime import datetime
 from typing import Optional
@@ -14,8 +15,9 @@ from ..core.exceptions import (
     TradingError,
 )
 from ..core.usecases import CurrencyService, SessionManager, TradingService, UserManager
-from ..parser_service.updater import RateUpdater
-from ..parser_service.scheduler import RateScheduler
+from ..infra.database import db
+from ..parser_service.updater import RatesUpdater
+
 
 class CLI:
     """Командный интерфейс для валютного кошелька."""
@@ -52,6 +54,8 @@ class CLI:
   valutatrade buy --currency BTC --amount 0.1
   valutatrade sell --currency EUR --amount 50
   valutatrade get-rate --from USD --to JPY
+  valutatrade show-rates --top 5
+  valutatrade update-rates --source coingecko
   valutatrade logout
             """
         )
@@ -130,8 +134,34 @@ class CLI:
 
         # update-rates command
         update_parser = subparsers.add_parser(
-            "update-rates", 
+            "update-rates",
             help="Обновить курсы валют из внешних API"
+        )
+        update_parser.add_argument(
+            "--source",
+            choices=["coingecko", "exchangerate", "all"],
+            default="all",
+            help="Источник данных (coingecko, exchangerate, all)"
+        )
+
+        # show-rates command
+        show_rates_parser = subparsers.add_parser(
+            "show-rates",
+            help="Показать актуальные курсы из локального кэша"
+        )
+        show_rates_parser.add_argument(
+            "--currency",
+            help="Показать курс только для указанной валюты"
+        )
+        show_rates_parser.add_argument(
+            "--top",
+            type=int,
+            help="Показать N самых дорогих криптовалют"
+        )
+        show_rates_parser.add_argument(
+            "--base",
+            default="USD",
+            help="Базовая валюта для отображения курсов"
         )
 
         args = parser.parse_args()
@@ -158,6 +188,7 @@ class CLI:
             "get-rate": self._handle_get_rate,
             "list-currencies": self._handle_list_currencies,
             "update-rates": self._handle_update_rates,
+            "show-rates": self._handle_show_rates,
         }
 
         try:
@@ -182,31 +213,157 @@ class CLI:
             print("   Пожалуйста, сообщите об этой ошибке разработчикам.")
 
     def _handle_update_rates(self, args):
-        """Обрабатывает команду update-rates."""
+        """Обрабатывает команду update-rates с фильтрацией по источникам."""
         print("🔄 Обновление курсов валют...")
-        
+
         try:
-            updater = RateUpdater()
-            
+            updater = RatesUpdater()
+
+            # Логируем выбранный источник
+            if args.source != "all":
+                print(f"📡 Источник: {args.source}")
+
             # Выполняем обновление
-            stats = updater.update_rates()
-            
+            stats = updater.run_update()
+
             if stats["total_updated"] > 0:
-                # Обновляем локальный кэш
-                success = updater.update_local_cache()
-                if success:
-                    print(f"✅ Курсы обновлены успешно!")
-                    print(f"   📊 Обновлено пар: {stats['total_updated']}")
-                    print(f"   💵 Фиатные валюты: {stats.get('fiat_rates', 0)}")
-                    print(f"   ₿ Криптовалюты: {stats.get('crypto_rates', 0)}")
-                    print(f"   ⚠️ Ошибки: {stats.get('errors', 0)}")
-                else:
-                    print("❌ Не удалось обновить локальный кэш")
+                print("✅ Курсы обновлены успешно!")
+                print(f"   📊 Обновлено пар: {stats['total_updated']}")
+                print(f"   💵 Фиатные валюты: {stats.get('fiat_rates', 0)}")
+                print(f"   ₿ Криптовалюты: {stats.get('crypto_rates', 0)}")
+                print(f"   ⚠️ Ошибки: {stats.get('errors', 0)}")
+
+                # Показываем детали по источникам
+                if "details" in stats and "sources" in stats["details"]:
+                    for source, source_stats in stats["details"]["sources"].items():
+                        status_icon = "✅" if source_stats["status"] == "success" else "❌" # noqa: E501
+                        print(f"   {status_icon} {source}: {source_stats.get('pairs_count', 0)} пар") # noqa: E501
             else:
                 print("ℹ️  Новые курсы не получены (возможно, временные проблемы с API)")
-                
+
+        except ApiRequestError as e:
+            print(f"❌ Ошибка API: {e}")
+            print("   🔄 Проверьте подключение к интернету и повторите попытку позже.")
         except Exception as e:
             print(f"❌ Ошибка при обновлении курсов: {e}")
+
+    def _handle_show_rates(self, args):
+        """Обрабатывает команду show-rates с фильтрацией."""
+        try:
+            # Загружаем данные из кэша
+            cache_data = db.load("rates")
+
+            if not cache_data or "pairs" not in cache_data or not cache_data["pairs"]:
+                print("❌ Локальный кэш курсов пуст.")
+                print("   💡 Выполните 'valutatrade update-rates', чтобы загрузить данные.") # noqa: E501
+                return
+
+            pairs = cache_data["pairs"]
+            last_refresh = cache_data.get("last_refresh", "неизвестно")
+
+            # Форматируем время обновления
+            try:
+                dt = datetime.fromisoformat(last_refresh.replace('Z', '+00:00'))
+                refresh_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+            except Exception:
+                refresh_str = last_refresh
+
+            print(f"📈 Курсы из кэша (обновлено: {refresh_str})")
+            print()
+
+            # Применяем фильтры
+            filtered_pairs = self._filter_rates(pairs, args)
+
+            if not filtered_pairs:
+                print("❌ Нет данных, соответствующих указанным фильтрам.")
+                return
+
+            # Сортируем и выводим
+            self._display_rates_table(filtered_pairs, args)
+
+        except FileNotFoundError:
+            print("❌ Файл кэша курсов не найден.")
+            print("   💡 Выполните 'valutatrade update-rates', чтобы загрузить данные.")
+        except json.JSONDecodeError:
+            print("❌ Ошибка чтения файла кэша.")
+            print("   💡 Выполните 'valutatrade update-rates', чтобы перезагрузить данные.") # noqa: E501
+
+    def _filter_rates(self, pairs: dict, args) -> list:
+        """Применяет фильтры к списку курсов."""
+        filtered = []
+
+        for pair_key, rate_data in pairs.items():
+            from_currency, to_currency = pair_key.split("_")
+
+            # Фильтр по валюте
+            if args.currency:
+                currency_upper = args.currency.upper()
+                if from_currency != currency_upper and to_currency != currency_upper:
+                    continue
+
+            # Фильтр по базовой валюте
+            if args.base.upper() != "USD":
+                # Пропускаем пары, не относящиеся к выбранной базе
+                if to_currency != args.base.upper():
+                    continue
+
+            filtered.append((pair_key, rate_data))
+
+        return filtered
+
+    def _display_rates_table(self, pairs: list, args):
+        """Отображает курсы в виде таблицы."""
+        table = PrettyTable()
+        table.field_names = ["Пара валют", "Курс", "Обновлено", "Источник"]
+        table.align = "r"
+        table.align["Пара валют"] = "l"
+
+        # Сортируем пары
+        sorted_pairs = self._sort_rates(pairs, args)
+
+        for pair_key, rate_data in sorted_pairs:
+            # Форматируем время
+            try:
+                dt = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
+                time_str = dt.strftime("%H:%M:%S")
+            except Exception:
+                time_str = rate_data["updated_at"]
+
+            table.add_row([
+                pair_key,
+                f"{rate_data['rate']:.8f}",
+                time_str,
+                rate_data.get("source", "Unknown")
+            ])
+
+        print(table)
+
+        # Дополнительная информация для --top
+        if args.top:
+            print(f"\n📊 Показано топ-{args.top} самых дорогих криптовалют")
+
+    def _sort_rates(self, pairs: list, args) -> list:
+        """Сортирует курсы согласно аргументам."""
+        if args.top:
+            # Для --top сортируем по убыванию курса и берем первые N
+            crypto_pairs = [
+                (pair, data) for pair, data in pairs
+                if self._is_crypto(pair.split("_")[0])
+            ]
+            sorted_crypto = sorted(
+                crypto_pairs,
+                key=lambda x: x[1]["rate"],
+                reverse=True
+            )
+            return sorted_crypto[:args.top]
+        else:
+            # Обычная сортировка по алфавиту
+            return sorted(pairs, key=lambda x: x[0])
+
+    def _is_crypto(self, currency_code: str) -> bool:
+        """Проверяет, является ли валюта криптовалютой."""
+        crypto_currencies = {"BTC", "ETH", "LTC", "XRP", "ADA", "SOL", "DOT"}
+        return currency_code in crypto_currencies
 
     def _suggest_currency_help(self):
         """Предлагает помощь по валютам при ошибке CurrencyNotFoundError."""
