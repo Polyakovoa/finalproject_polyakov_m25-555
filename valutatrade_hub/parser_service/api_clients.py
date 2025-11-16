@@ -152,7 +152,7 @@ class ExchangeRateApiClient(BaseApiClient):
                     rates[rate_key] = inverted_rate
 
             logger.info(
-                f"Fetched {len(rates)} fiat rates from ExchangeRate-API (inverted from {len(rates_data)} available)" # noqa: E501
+                f"Fetched {len(rates)} fiat rates from ExchangeRate-API (inverted from {len(rates_data)} available)"  # noqa: E501
             )
             return rates
 

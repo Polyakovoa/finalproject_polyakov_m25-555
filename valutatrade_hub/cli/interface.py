@@ -16,6 +16,7 @@ from ..core.exceptions import (
 )
 from ..core.usecases import CurrencyService, SessionManager, TradingService, UserManager
 from ..infra.database import db
+from ..logging_config import setup_logging
 from ..parser_service.updater import RatesUpdater
 
 
@@ -89,7 +90,7 @@ class CLI:
         buy_parser.add_argument(
             "--currency",
             required=True,
-            help="Код покупаемой валюты (например: USD, EUR, BTC)", # noqa: E501
+            help="Код покупаемой валюты (например: USD, EUR, BTC)",
         )
         buy_parser.add_argument(
             "--amount", type=float, required=True, help="Количество покупаемой валюты"
@@ -253,10 +254,10 @@ class CLI:
                             "✅" if source_stats["status"] == "success" else "❌"
                         )
                         print(
-                            f"   {status_icon} {source}: {source_stats.get('pairs_count', 0)} пар" # noqa: E501
+                            f"   {status_icon} {source}: {source_stats.get('pairs_count', 0)} пар"  # noqa: E501
                         )
             else:
-                print("ℹ️  Новые курсы не получены (возможно, временные проблемы с API)")
+                print("ℹ️  Новые курсы не получены (возможно, временные проблемы с API)")  # noqa: E501
 
         except ApiRequestError as e:
             print(f"❌ Ошибка API: {e}")
@@ -273,7 +274,7 @@ class CLI:
             if not cache_data or "pairs" not in cache_data or not cache_data["pairs"]:
                 print("❌ Локальный кэш курсов пуст.")
                 print(
-                    "   💡 Выполните 'valutatrade update-rates', чтобы загрузить данные." # noqa: E501
+                    "   💡 Выполните 'valutatrade update-rates', чтобы загрузить данные."  # noqa: E501
                 )
                 return
 
@@ -368,7 +369,7 @@ class CLI:
             try:
                 dt = datetime.fromisoformat(
                     rate_data["updated_at"].replace("Z", "+00:00")
-                )  # noqa: E501
+                )
                 time_str = dt.strftime("%H:%M:%S")
             except Exception:
                 time_str = rate_data["updated_at"]
@@ -423,7 +424,7 @@ class CLI:
         print(f"✅ Пользователь '{user.username}' зарегистрирован (id={user.user_id}).")
         print("🎉 Спасибо за регистрацию! Приветственный бонус - 300 USD!")
         print(
-            f"   🔑 Войдите в систему: valutatrade login --username {user.username} --password ****" # noqa: E501
+            f"   🔑 Войдите в систему: valutatrade login --username {user.username} --password ****"  # noqa: E501
         )
 
     def _handle_login(self, args):
@@ -504,16 +505,16 @@ class CLI:
 
             print("✅ Покупка выполнена успешно!")
             print(
-                f"   💰 Куплено: {result['amount']:.4f} {result['currency']} ({result['currency_name']})" # noqa: E501
+                f"   💰 Куплено: {result['amount']:.4f} {result['currency']} ({result['currency_name']})"  # noqa: E501
             )
             print(f"   📈 Курс: {result['rate']:.4f} USD/{result['currency']}")
             print(f"   💵 Стоимость: {result['total_cost']:,.2f} USD")
             print("   📊 Изменения баланса:")
             print(
-                f"      - {result['currency']}: {result['old_balance']:.4f} → {result['new_balance']:.4f}" # noqa: E501
+                f"      - {result['currency']}: {result['old_balance']:.4f} → {result['new_balance']:.4f}"  # noqa: E501
             )
             print(
-                f"      - USD: {result['old_usd_balance']:.2f} → {result['new_usd_balance']:.2f}" # noqa: E501
+                f"      - USD: {result['old_usd_balance']:.2f} → {result['new_usd_balance']:.2f}"  # noqa: E501
             )
 
         except CurrencyNotFoundError:
@@ -536,16 +537,16 @@ class CLI:
 
             print("✅ Продажа выполнена успешно!")
             print(
-                f"   💰 Продано: {result['amount']:.4f} {result['currency']} ({result['currency_name']})" # noqa: E501
+                f"   💰 Продано: {result['amount']:.4f} {result['currency']} ({result['currency_name']})"  # noqa: E501
             )
             print(f"   📈 Курс: {result['rate']:.4f} USD/{result['currency']}")
             print(f"   💵 Выручка: {result['total_income']:,.2f} USD")
             print("   📊 Изменения баланса:")
             print(
-                f"      - {result['currency']}: {result['old_balance']:.4f} → {result['new_balance']:.4f}" # noqa: E501
+                f"      - {result['currency']}: {result['old_balance']:.4f} → {result['new_balance']:.4f}"  # noqa: E501
             )
             print(
-                f"      - USD: {result['old_usd_balance']:.2f} → {result['new_usd_balance']:.2f}" # noqa: E501
+                f"      - USD: {result['old_usd_balance']:.2f} → {result['new_usd_balance']:.2f}"  # noqa: E501
             )
 
         except CurrencyNotFoundError:
@@ -603,6 +604,7 @@ class CLI:
 
 def main():
     """Точка входа для CLI."""
+    setup_logging()
     cli = CLI()
     cli.run()
 

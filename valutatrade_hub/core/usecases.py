@@ -223,7 +223,7 @@ class CurrencyService:
         historical_rate = self._get_historical_rate(from_currency, to_currency)
         if historical_rate is not None:
             logger.debug(
-                f"Using HISTORICAL rate for {from_currency}->{to_currency}: {historical_rate}" # noqa: E501
+                f"Using HISTORICAL rate for {from_currency}->{to_currency}: {historical_rate}"  # noqa: E501
             )
             return historical_rate
 
@@ -257,7 +257,7 @@ class CurrencyService:
                         < self.rates_ttl
                     ):
                         logger.debug(
-                            f"Using cached rate from pairs: {pair_key} = {rate_data['rate']}" # noqa: E501
+                            f"Using cached rate from pairs: {pair_key} = {rate_data['rate']}"  # noqa: E501
                         )
                         return rate_data["rate"]
 
@@ -274,7 +274,7 @@ class CurrencyService:
                         < self.rates_ttl
                     ):
                         logger.debug(
-                            f"Using cached reverse rate: {reverse_key} = {rate_data['rate']}" # noqa: E501
+                            f"Using cached reverse rate: {reverse_key} = {rate_data['rate']}"  # noqa: E501
                         )
                         return rate_data["rate"]
 

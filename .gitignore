@@ -32,6 +32,7 @@ env/
 *.env
 secrets.json
 config.local.json
+logs/
 
 # Игнорировать все в data/ кроме README или конфигов
 data/*

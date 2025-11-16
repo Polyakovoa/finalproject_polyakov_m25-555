@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "finalproject-polyakov-m25-555"
-version = "0.1.0"
-description = "Консольное приложение для работы с валютным кошельком"
+version = "1.0.0"
+description = "ValutaTrade - консольное приложение для управления валютным кошельком"
 authors = ["Polyakovoa <polyakovoa@mail.ru>"]
 license = "MIT"
 readme = "README.md"
@@ -19,6 +19,7 @@ requests = "^2.31.0"
 ruff = "^0.1.0"
 
 [tool.poetry.scripts]
+project = "main:main"
 valutatrade = "main:main"
 
 [tool.ruff]

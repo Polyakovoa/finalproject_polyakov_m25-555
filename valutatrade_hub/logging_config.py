@@ -37,7 +37,7 @@ def setup_logging() -> None:
     log_level = getattr(logging, settings.get("log_level", "INFO").upper())
     log_format = settings.get(
         "log_format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )  # noqa: E501
+    )
 
     # Основной логгер приложения
     logger = logging.getLogger("valutatrade")
