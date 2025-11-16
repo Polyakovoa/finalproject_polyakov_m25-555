@@ -183,28 +183,28 @@ class RateUpdater:
     def update_local_cache(self) -> bool:
         """
         Обновляет локальный кэш rates.json из исторических данных.
-        
+
         Returns:
             True если обновление успешно
         """
         try:
             # Получаем последние курсы
             latest_rates = self.storage.get_latest_rates("USD")
-            
+
             # Создаем новую структуру для rates.json
             cache_data = {
                 "pairs": {},
                 "last_refresh": datetime.utcnow().isoformat() + "Z",
                 "source": "ParserService"
             }
-            
+
             # Добавляем все пары валют в новом формате
             for currency, rate in latest_rates.items():
                 if currency == "USD":
                     continue  # Пропускаем базовую валюту
-                    
+
                 pair_key = f"{currency}_USD"
-                
+
                 # Получаем информацию о последнем обновлении для этой пары
                 try:
                     history = self.storage.get_rate_history(currency, "USD", days=1)
@@ -231,23 +231,23 @@ class RateUpdater:
                             source = "ExchangeRate-API"
                         else:
                             source = "CoinGecko"
-                    except:
+                    except Exception:
                         source = "Unknown"
                     updated_at = datetime.utcnow().isoformat() + "Z"
-                
+
                 cache_data["pairs"][pair_key] = {
                     "rate": rate,
                     "updated_at": updated_at,
                     "source": source
                 }
-            
+
             # Сохраняем в rates.json через DatabaseManager
             from ..infra.database import db
             db.save("rates", cache_data)
-            
+
             logger.info(f"Local cache updated with {len(cache_data['pairs'])} rate pairs") # noqa: E501
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to update local cache: {e}")
             return False

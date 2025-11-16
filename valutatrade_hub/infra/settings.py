@@ -49,7 +49,12 @@ class SettingsLoader:
             "supported_currencies": ["USD", "EUR", "GBP", "JPY", "RUB", "BTC", "ETH"],
             "session_timeout_hours": 24,
             "max_login_attempts": 3,
-            "api_timeout_seconds": 30
+            "api_timeout_seconds": 30,
+            "exchangerate_api_key": "4b468e05030488a5d11e381c",
+            "coingecko_api_key": "",
+            "rates_update_interval": 300,
+            "api_max_retries": 3,
+            "api_retry_delay": 1.0,
         }
 
         # Загружаем из pyproject.toml если существует
