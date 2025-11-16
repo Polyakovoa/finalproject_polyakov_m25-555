@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict
 
+from ..infra.database import db
+from ..infra.settings import settings
 from .exceptions import (
     ApiRequestError,
     CurrencyNotFoundError,
@@ -15,47 +17,35 @@ from .models import Portfolio, User
 class UserManager:
     """Менеджер для работы с пользователями."""
 
-    def __init__(self, data_dir: str = "data"):
-        self.data_dir = Path(data_dir)
-        self.users_file = self.data_dir / "users.json"
-        self.portfolios_file = self.data_dir / "portfolios.json"
+    def __init__(self):
+        # Используем настройки из синглтона
+        self.data_dir = Path(settings.get("data_dir", "data"))
         self._ensure_data_files()
 
     def _ensure_data_files(self) -> None:
         """Создает необходимые файлы данных, если они не существуют."""
-        self.data_dir.mkdir(exist_ok=True)
+        # Используем DatabaseManager для создания базовой структуры
+        if not db.load("users"):
+            db.save("users", [])
 
-        if not self.users_file.exists():
-            self.users_file.write_text('[]', encoding='utf-8')
-
-        if not self.portfolios_file.exists():
-            self.portfolios_file.write_text('{}', encoding='utf-8')
+        if not db.load("portfolios"):
+            db.save("portfolios", {})
 
     def _load_users(self) -> list:
         """Загружает список пользователей из JSON."""
-        try:
-            with open(self.users_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
-            return []
+        return db.load("users")
 
     def _save_users(self, users_data: list) -> None:
         """Сохраняет список пользователей в JSON."""
-        with open(self.users_file, 'w', encoding='utf-8') as f:
-            json.dump(users_data, f, indent=2, ensure_ascii=False)
+        db.save("users", users_data)
 
     def _load_portfolios(self) -> dict:
-        """Загружает профиль из JSON."""
-        try:
-            with open(self.portfolios_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
-            return {}
+        """Загружает портфели из JSON."""
+        return db.load("portfolios")
 
     def _save_portfolios(self, portfolios_data: dict) -> None:
-        """Сохраняет профиль в JSON."""
-        with open(self.portfolios_file, 'w', encoding='utf-8') as f:
-            json.dump(portfolios_data, f, indent=2, ensure_ascii=False)
+        """Сохраняет портфели в JSON."""
+        db.save("portfolios", portfolios_data)
 
     def register_user(self, username: str, password: str) -> User:
         """Регистрирует нового пользователя."""
@@ -134,41 +124,35 @@ class UserManager:
 class CurrencyService:
     """Сервис для работы с курсами валют."""
 
-    def __init__(self, data_dir: str = "data"):
-        self.data_dir = Path(data_dir)
-        self.rates_file = self.data_dir / "rates.json"
+    def __init__(self):
+        # Используем настройки из синглтона
+        self.data_dir = Path(settings.get("data_dir", "data"))
+        self.rates_ttl = timedelta(seconds=settings.get("rates_ttl_seconds", 300))
         self._ensure_rates_file()
 
     def _ensure_rates_file(self) -> None:
         """Создает файл курсов, если он не существует."""
-        self.data_dir.mkdir(exist_ok=True)
-
-        if not self.rates_file.exists():
+        if not db.load("rates"):
             initial_rates = {
                 "USD_USD": {"rate": 1.0, "updated_at": datetime.now().isoformat()},
                 "EUR_USD": {"rate": 0.85, "updated_at": datetime.now().isoformat()},
                 "GBP_USD": {"rate": 0.73, "updated_at": datetime.now().isoformat()},
                 "JPY_USD": {"rate": 110.0, "updated_at": datetime.now().isoformat()},
-                "RUB_USD": {"rate": 75.0, "updated_at": datetime.now().isoformat()},
-                "BTC_USD": {"rate": 50000.0, "updated_at": datetime.now().isoformat()},
+                "RUB_USD": {"rate": 80.0, "updated_at": datetime.now().isoformat()},
+                "BTC_USD": {"rate": 100000.0, "updated_at": datetime.now().isoformat()},
                 "ETH_USD": {"rate": 3000.0, "updated_at": datetime.now().isoformat()},
                 "source": "stub",
                 "last_refresh": datetime.now().isoformat()
             }
-            self._save_rates(initial_rates)
+            db.save("rates", initial_rates)
 
     def _load_rates(self) -> dict:
         """Загружает курсы валют из JSON."""
-        try:
-            with open(self.rates_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
-            return {}
+        return db.load("rates")
 
     def _save_rates(self, rates_data: dict) -> None:
         """Сохраняет курсы валют в JSON."""
-        with open(self.rates_file, 'w', encoding='utf-8') as f:
-            json.dump(rates_data, f, indent=2, ensure_ascii=False)
+        db.save("rates", rates_data)
 
     def get_exchange_rate(self, from_currency: str, to_currency: str) -> float:
         """Возвращает курс обмена между валютами."""
@@ -177,7 +161,7 @@ class CurrencyService:
 
         # Проверяем существование валют
         try:
-            from ..core.currencies import get_currency
+            from .currencies import get_currency
             get_currency(from_currency)
             get_currency(to_currency)
         except CurrencyNotFoundError as e:
@@ -189,9 +173,9 @@ class CurrencyService:
         # Прямой курс
         if pair_key in rates_data:
             rate_data = rates_data[pair_key]
-            # Проверяем свежесть данных (5 минут)
+            # Используем TTL из настроек
             updated_at = datetime.fromisoformat(rate_data["updated_at"])
-            if datetime.now() - updated_at < timedelta(minutes=5):
+            if datetime.now() - updated_at < self.rates_ttl:
                 return rate_data["rate"]
 
         # Обратный курс
@@ -199,7 +183,7 @@ class CurrencyService:
         if reverse_key in rates_data:
             rate_data = rates_data[reverse_key]
             updated_at = datetime.fromisoformat(rate_data["updated_at"])
-            if datetime.now() - updated_at < timedelta(minutes=5):
+            if datetime.now() - updated_at < self.rates_ttl:
                 return 1.0 / rate_data["rate"]
 
         # Заглушка для демонстрации (имитация API)

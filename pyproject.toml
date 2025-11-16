@@ -12,6 +12,7 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.8"
 prettytable = "^3.9.0"
+toml = "^0.10.2"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.1.0"
@@ -32,3 +33,14 @@ ignore = []
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
+
+[tool.valutatrade]
+data_dir = "data"
+rates_ttl_seconds = 300
+default_base_currency = "USD"
+log_dir = "logs"
+log_level = "INFO"
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+session_timeout_hours = 24
+max_login_attempts = 3
+api_timeout_seconds = 30
