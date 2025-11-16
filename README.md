@@ -10,39 +10,6 @@ ValutaTrade Hub - это полнофункциональное консольн
 - Получать актуальные курсы валют из внешних API
 - Отслеживать историю операций и изменения баланса
 
-## 📁 Структура проекта
-finalproject_polyakov_m25-555/
-├── data/
-│ ├── users.json (данные пользователей)
-│ ├── portfolios.json (портфели и балансы)
-│ ├── rates.json (локальный кэш курсов)
-│ ├── exchange_rates.json (исторические данные)
-│ └── session.json (текущая сессия)
-├── valutatrade_hub/
-│ ├── core/ (бизнес-логика)
-│ │ ├── models.py (User, Wallet, Portfolio)
-│ │ ├── currencies.py (Currency, FiatCurrency, CryptoCurrency)
-│ │ ├── usecases.py (UserManager, CurrencyService, TradingService)
-│ │ ├── exceptions.py (кастомные исключения)
-│ │ └── utils.py (утилиты)
-│ ├── infra/ (инфраструктура)
-│ │ ├── settings.py (Singleton SettingsLoader)
-│ │ └── database.py (Singleton DatabaseManager)
-│ ├── parser_service/ (сервис парсинга курсов)
-│ │ ├── config.py (ParserConfig dataclass)
-│ │ ├── api_clients.py (ExchangeRate-API, CoinGecko)
-│ │ ├── updater.py (RateUpdater)
-│ │ ├── storage.py (RateStorage)
-│ │ └── scheduler.py (RateScheduler)
-│ ├── cli/ (интерфейс)
-│ │ └── interface.py (CLI команды)
-│ ├── decorators.py (логирование, кэширование)
-│ └── logging_config.py (настройка логов)
-├── main.py (точка входа)
-├── pyproject.toml (конфигурация Poetry)
-├── Makefile (автоматизация)
-└── README.md (документация)
-
 ## 🚀 Установка и запуск
 
 ### Предварительные требования
@@ -50,7 +17,7 @@ finalproject_polyakov_m25-555/
 - Poetry
 
 ### Установка
-```bash
+
 # Клонирование репозитория
 git clone <repository-url>
 cd finalproject_polyakov_m25-555
@@ -71,7 +38,7 @@ poetry run project
 # Прямой вызов
 poetry run python main.py
 
-💻 Команды CLI
+## 💻 Команды CLI
 Управление пользователями
 
 # Регистрация (с приветственным бонусом 300 USD!)
@@ -127,7 +94,7 @@ valutatrade update-rates --source exchangerate
 # Список поддерживаемых валют
 valutatrade list-currencies
 
-⚙️ Настройка API
+## ⚙️ Настройка API
 
 ExchangeRate-API
 - Получите API ключ на exchangerate-api.com
@@ -141,7 +108,7 @@ CoinGecko API
 
 export COINGECKO_API_KEY="your_api_key_here"
 
-🔧 Кэш и TTL
+## 🔧 Кэш и TTL
 - Локальный кэш: data/rates.json - кэшированные курсы валют
 - TTL: 1 час (настраивается в settings.py)
 - Исторические данные: data/exchange_rates.json - полная история обновлений
@@ -151,17 +118,20 @@ export COINGECKO_API_KEY="your_api_key_here"
 - Исторические данные парсера
 - Заглушки (fallback)
 
-📊 Поддерживаемые валюты
+## 📊 Поддерживаемые валюты
 Фиатные валюты
 USD, EUR, GBP, JPY, RUB, CHF, CNY
 
 Криптовалюты
 BTC, ETH, LTC, XRP, ADA, SOL, DOT
 
-🎨 Архитектурные особенности
+## 🎨 Архитектурные особенности
 Слоистая архитектура: разделение на core/infra/parser/cli
 Синглтоны: SettingsLoader, DatabaseManager
 Декораторы: @log_action, @measure_time, @cache_result
 Исключения: кастомные исключения для доменной логики
 Конфигурация: централизованная через dataclasses
+
+## Демонстрация функционала в Asciinema:
+
 
