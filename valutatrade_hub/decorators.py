@@ -8,7 +8,9 @@ from typing import Any, Callable, Dict, Optional
 from .logging_config import get_logger
 
 
-def log_action(action_name: Optional[str] = None, level: str = "INFO", verbose: bool = False): # noqa: E501
+def log_action(
+    action_name: Optional[str] = None, level: str = "INFO", verbose: bool = False
+):  # noqa: E501
     """
     Декоратор для логирования доменных операций.
 
@@ -17,6 +19,7 @@ def log_action(action_name: Optional[str] = None, level: str = "INFO", verbose: 
         level: Уровень логирования (INFO, DEBUG, WARNING, ERROR)
         verbose: Подробное логирование с контекстом
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -44,10 +47,7 @@ def log_action(action_name: Optional[str] = None, level: str = "INFO", verbose: 
                 result = func(*args, **kwargs)
 
                 # Добавляем информацию о результате
-                log_data.update({
-                    "result": "OK",
-                    "status": "success"
-                })
+                log_data.update({"result": "OK", "status": "success"})
 
                 # Если verbose режим и есть результат, добавляем детали
                 if verbose and result and isinstance(result, dict):
@@ -60,17 +60,20 @@ def log_action(action_name: Optional[str] = None, level: str = "INFO", verbose: 
 
             except Exception as e:
                 # Логируем ошибку
-                log_data.update({
-                    "result": "ERROR",
-                    "status": "failed",
-                    "error_type": e.__class__.__name__,
-                    "error_message": str(e)
-                })
+                log_data.update(
+                    {
+                        "result": "ERROR",
+                        "status": "failed",
+                        "error_type": e.__class__.__name__,
+                        "error_message": str(e),
+                    }
+                )
 
                 _log_action_data(logger, "ERROR", log_data)
                 raise
 
         return wrapper
+
     return decorator
 
 
@@ -126,42 +129,51 @@ def _extract_verbose_info(result: Dict[str, Any], action: str) -> Dict[str, Any]
     verbose_info = {}
 
     if action == "BUY":
-        verbose_info.update({
-            "rate": result.get("rate"),
-            "total_cost": result.get("total_cost"),
-            "old_balance": result.get("old_balance"),
-            "new_balance": result.get("new_balance"),
-            "base_currency": "USD"
-        })
+        verbose_info.update(
+            {
+                "rate": result.get("rate"),
+                "total_cost": result.get("total_cost"),
+                "old_balance": result.get("old_balance"),
+                "new_balance": result.get("new_balance"),
+                "base_currency": "USD",
+            }
+        )
     elif action == "SELL":
-        verbose_info.update({
-            "rate": result.get("rate"),
-            "total_income": result.get("total_income"),
-            "old_balance": result.get("old_balance"),
-            "new_balance": result.get("new_balance"),
-            "base_currency": "USD"
-        })
+        verbose_info.update(
+            {
+                "rate": result.get("rate"),
+                "total_income": result.get("total_income"),
+                "old_balance": result.get("old_balance"),
+                "new_balance": result.get("new_balance"),
+                "base_currency": "USD",
+            }
+        )
     elif action == "GET_RATE":
-        verbose_info.update({
-            "rate": result.get("rate"),
-            "from_currency": result.get("from_currency"),
-            "to_currency": result.get("to_currency")
-        })
+        verbose_info.update(
+            {
+                "rate": result.get("rate"),
+                "from_currency": result.get("from_currency"),
+                "to_currency": result.get("to_currency"),
+            }
+        )
 
     return verbose_info
 
 
-def _log_action_data(logger: logging.Logger, level: str, log_data: Dict[str, Any]) -> None: # noqa: E501
+def _log_action_data(
+    logger: logging.Logger, level: str, log_data: Dict[str, Any]
+) -> None:  # noqa: E501
     """Логирует данные действия с указанным уровнем."""
     log_method = getattr(logger, level.lower())
 
     # Создаем LogRecord с дополнительными данными
-    extra_data = {'action_data': log_data}
+    extra_data = {"action_data": log_data}
     log_method(log_data["action"], extra=extra_data)
 
 
 def measure_time(func: Callable) -> Callable:
     """Декоратор для измерения времени выполнения функции."""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs) -> Any:
         logger = get_logger("performance")
@@ -173,17 +185,21 @@ def measure_time(func: Callable) -> Callable:
         finally:
             end_time = time.time()
             execution_time = end_time - start_time
-            logger.debug(f"Функция {func.__name__} выполнена за {execution_time:.4f} секунд") # noqa: E501
+            logger.debug(
+                f"Функция {func.__name__} выполнена за {execution_time:.4f} секунд"
+            )  # noqa: E501
 
     return wrapper
 
 
 def require_login(func: Callable) -> Callable:
     """Декоратор для проверки аутентификации пользователя."""
+
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs) -> Any:
-        if not hasattr(self, 'current_user') or not self.current_user:
+        if not hasattr(self, "current_user") or not self.current_user:
             from .core.exceptions import AuthenticationError
+
             raise AuthenticationError("Сначала выполните login")
         return func(self, *args, **kwargs)
 
@@ -192,6 +208,7 @@ def require_login(func: Callable) -> Callable:
 
 def cache_result(ttl_seconds: int = 300):
     """Декоратор для кеширования результатов функций."""
+
     def decorator(func: Callable) -> Callable:
         cache = {}
 
@@ -217,11 +234,13 @@ def cache_result(ttl_seconds: int = 300):
 
         wrapper.clear_cache = clear_cache
         return wrapper
+
     return decorator
 
 
 def retry_on_failure(max_attempts: int = 3, delay: float = 1.0):
     """Декоратор для повторения вызовов при ошибках."""
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -234,7 +253,7 @@ def retry_on_failure(max_attempts: int = 3, delay: float = 1.0):
                 except Exception as e:
                     last_exception = e
                     logger.warning(
-                        f"Попытка {attempt + 1}/{max_attempts} не удалась для {func.__name__}: {e}" # noqa: E501
+                        f"Попытка {attempt + 1}/{max_attempts} не удалась для {func.__name__}: {e}"  # noqa: E501
                     )
 
                     if attempt < max_attempts - 1:
@@ -244,4 +263,5 @@ def retry_on_failure(max_attempts: int = 3, delay: float = 1.0):
             raise last_exception
 
         return wrapper
+
     return decorator

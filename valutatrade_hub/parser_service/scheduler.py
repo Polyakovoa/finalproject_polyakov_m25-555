@@ -32,7 +32,9 @@ class RateScheduler:
             return False
 
         self.is_running = True
-        self.scheduler_thread = threading.Thread(target=self._scheduler_loop, daemon=True)  # noqa: E501
+        self.scheduler_thread = threading.Thread(
+            target=self._scheduler_loop, daemon=True
+        )  # noqa: E501
         self.scheduler_thread.start()
 
         logger.info(f"Scheduler started with {self.update_interval} second interval")
@@ -115,5 +117,5 @@ class RateScheduler:
         return {
             "is_running": self.is_running,
             "update_interval": self.update_interval,
-            "last_update": self.updater.get_update_status()
+            "last_update": self.updater.get_update_status(),
         }

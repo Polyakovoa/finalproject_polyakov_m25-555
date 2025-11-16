@@ -32,10 +32,7 @@ def get_currency_display_info(code: str) -> Optional[str]:
 
 
 def convert_amount(
-    amount: float,
-    from_currency: str,
-    to_currency: str,
-    exchange_rate: float
+    amount: float, from_currency: str, to_currency: str, exchange_rate: float
 ) -> float:
     """Конвертирует сумму из одной валюты в другую."""
     if amount < 0:

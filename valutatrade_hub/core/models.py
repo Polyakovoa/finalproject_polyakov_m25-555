@@ -13,7 +13,7 @@ class User:
         username: str,
         password: str,
         salt: str = None,
-        registration_date: datetime = None
+        registration_date: datetime = None,
     ):
         self._user_id = user_id
         self.username = username  # Используем сеттер для проверки
@@ -58,6 +58,7 @@ class User:
     def _generate_salt(self) -> str:
         """Генерирует случайную соль для хеширования пароля."""
         import secrets
+
         return secrets.token_hex(8)
 
     def _hash_password(self, password: str) -> str:
@@ -65,8 +66,8 @@ class User:
         if len(password) < 4:
             raise ValueError("Пароль должен быть не короче 4 символов")
 
-        password_bytes = password.encode('utf-8')
-        salt_bytes = self._salt.encode('utf-8')
+        password_bytes = password.encode("utf-8")
+        salt_bytes = self._salt.encode("utf-8")
         hashed = hashlib.sha256(password_bytes + salt_bytes).hexdigest()
         return hashed
 
@@ -90,7 +91,7 @@ class User:
         return {
             "user_id": self._user_id,
             "username": self._username,
-            "registration_date": self._registration_date.isoformat()
+            "registration_date": self._registration_date.isoformat(),
         }
 
     def to_dict(self) -> dict:
@@ -100,11 +101,11 @@ class User:
             "username": self._username,
             "hashed_password": self._hashed_password,
             "salt": self._salt,
-            "registration_date": self._registration_date.isoformat()
+            "registration_date": self._registration_date.isoformat(),
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'User':
+    def from_dict(cls, data: dict) -> "User":
         """Создает объект User из словаря (из JSON)."""
         registration_date = datetime.fromisoformat(data["registration_date"])
         user = cls(
@@ -112,20 +113,25 @@ class User:
             username=data["username"],
             password="temp",  # Временный пароль
             salt=data["salt"],
-            registration_date=registration_date
+            registration_date=registration_date,
         )
         user._hashed_password = data["hashed_password"]
         return user
 
     def __str__(self) -> str:
         """Строковое представление пользователя."""
-        return (f"User(id={self._user_id}, username='{self._username}', "
-                f"registered={self._registration_date.strftime('%Y-%m-%d')})")
+        return (
+            f"User(id={self._user_id}, username='{self._username}', "
+            f"registered={self._registration_date.strftime('%Y-%m-%d')})"
+        )
 
     def __repr__(self) -> str:
         """Репрезентация объекта для отладки."""
-        return (f"User(user_id={self._user_id}, username='{self._username}', "
-                f"registration_date='{self._registration_date.isoformat()}')")
+        return (
+            f"User(user_id={self._user_id}, username='{self._username}', "
+            f"registration_date='{self._registration_date.isoformat()}')"
+        )
+
 
 class Wallet:
     """Класс кошелька пользователя для конкретной валюты."""
@@ -178,34 +184,23 @@ class Wallet:
         if amount <= 0:
             raise ValueError("Сумма снятия должна быть положительной")
         if amount > self._balance:
-            raise InsufficientFundsError(
-                self._balance, amount, self._currency_code
-            )
+            raise InsufficientFundsError(self._balance, amount, self._currency_code)
 
         self.balance -= amount
         return True
 
     def get_balance_info(self) -> dict:
         """Возвращает информацию о текущем балансе."""
-        return {
-            "currency_code": self._currency_code,
-            "balance": self._balance
-        }
+        return {"currency_code": self._currency_code, "balance": self._balance}
 
     def to_dict(self) -> dict:
         """Сериализует кошелек в словарь для сохранения в JSON."""
-        return {
-            "currency_code": self._currency_code,
-            "balance": self._balance
-        }
+        return {"currency_code": self._currency_code, "balance": self._balance}
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'Wallet':
+    def from_dict(cls, data: dict) -> "Wallet":
         """Создает объект Wallet из словаря (из JSON)."""
-        return cls(
-            currency_code=data["currency_code"],
-            balance=data["balance"]
-        )
+        return cls(currency_code=data["currency_code"], balance=data["balance"])
 
     def __str__(self) -> str:
         """Строковое представление кошелька."""
@@ -214,6 +209,7 @@ class Wallet:
     def __repr__(self) -> str:
         """Репрезентация объекта для отладки."""
         return f"Wallet(currency_code='{self._currency_code}', balance={self._balance})"
+
 
 class Portfolio:
     """Класс для управления всеми кошельками одного пользователя."""
@@ -250,17 +246,17 @@ class Portfolio:
         currency_code = currency_code.upper()
         return self._wallets.get(currency_code)
 
-    def get_total_value(self, base_currency: str = 'USD') -> float:
+    def get_total_value(self, base_currency: str = "USD") -> float:
         """Возвращает общую стоимость всех валют в указанной базовой валюте."""
         # Фиксированные курсы для демонстрации
         exchange_rates = {
-            'USD': 1.0,
-            'EUR': 0.85,
-            'GBP': 0.73,
-            'JPY': 110.0,
-            'RUB': 80.0,
-            'BTC': 100000.0,  # 1 BTC = 100000 USD
-            'ETH': 3000.0    # 1 ETH = 3000 USD
+            "USD": 1.0,
+            "EUR": 0.85,
+            "GBP": 0.73,
+            "JPY": 110.0,
+            "RUB": 80.0,
+            "BTC": 100000.0,  # 1 BTC = 100000 USD
+            "ETH": 3000.0,  # 1 ETH = 3000 USD
         }
 
         if base_currency not in exchange_rates:
@@ -279,7 +275,7 @@ class Portfolio:
             else:
                 # Сначала конвертируем в USD, затем в базовую валюту
                 value_in_usd = wallet.balance * exchange_rates[currency_code]
-                if base_currency != 'USD':
+                if base_currency != "USD":
                     value_in_base = value_in_usd / exchange_rates[base_currency]
                 else:
                     value_in_base = value_in_usd
@@ -287,12 +283,7 @@ class Portfolio:
 
         return round(total_value, 2)
 
-    def buy_currency(
-        self,
-        target_currency: str,
-        amount: float,
-        price: float
-    ) -> bool:
+    def buy_currency(self, target_currency: str, amount: float, price: float) -> bool:
         """Покупает валюту, списывая сумму с USD-кошелька."""
         if amount <= 0:
             raise ValueError("Сумма покупки должна быть положительной")
@@ -307,10 +298,10 @@ class Portfolio:
             target_wallet = self.add_currency(target_currency)
 
         # Получаем USD кошелек (должен существовать после исправлений выше)
-        usd_wallet = self.get_wallet('USD')
+        usd_wallet = self.get_wallet("USD")
         if not usd_wallet:
             # Если USD кошелька нет, создаем его с нулевым балансом
-            usd_wallet = self.add_currency('USD', 0.0)
+            usd_wallet = self.add_currency("USD", 0.0)
 
         # Проверяем достаточно ли средств в USD кошельке
         if usd_wallet.balance < total_cost:
@@ -323,12 +314,7 @@ class Portfolio:
 
         return False
 
-    def sell_currency(
-        self,
-        source_currency: str,
-        amount: float,
-        price: float
-    ) -> bool:
+    def sell_currency(self, source_currency: str, amount: float, price: float) -> bool:
         """Продает валюту, начисляя сумму на USD-кошелёк."""
         if amount <= 0:
             raise ValueError("Сумма продажи должна быть положительной")
@@ -343,9 +329,9 @@ class Portfolio:
             raise ValueError(f"Кошелёк {source_currency} не найден")
 
         # Получаем или создаем USD кошелек
-        usd_wallet = self.get_wallet('USD')
+        usd_wallet = self.get_wallet("USD")
         if not usd_wallet:
-            usd_wallet = self.add_currency('USD')
+            usd_wallet = self.add_currency("USD")
 
         # Проверяем достаточно ли средств в исходном кошельке
         if source_wallet.balance < amount:
@@ -364,13 +350,10 @@ class Portfolio:
         for currency_code, wallet in self._wallets.items():
             wallets_dict[currency_code] = wallet.to_dict()
 
-        return {
-            "user_id": self._user_id,
-            "wallets": wallets_dict
-        }
+        return {"user_id": self._user_id, "wallets": wallets_dict}
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'Portfolio':
+    def from_dict(cls, data: dict) -> "Portfolio":
         """Создает объект Portfolio из словаря (из JSON)."""
         wallets = {}
         for currency_code, wallet_data in data["wallets"].items():
@@ -381,11 +364,15 @@ class Portfolio:
     def __str__(self) -> str:
         """Строковое представление портфеля."""
         wallet_count = len(self._wallets)
-        total_value = self.get_total_value('USD')
-        return (f"Portfolio(user_id={self._user_id}, wallets={wallet_count}, "
-                f"total_value={total_value:.2f} USD)")
+        total_value = self.get_total_value("USD")
+        return (
+            f"Portfolio(user_id={self._user_id}, wallets={wallet_count}, "
+            f"total_value={total_value:.2f} USD)"
+        )
 
     def __repr__(self) -> str:
         """Репрезентация объекта для отладки."""
-        return (f"Portfolio(user_id={self._user_id}, "
-                f"wallets={list(self._wallets.keys())})")
+        return (
+            f"Portfolio(user_id={self._user_id}, "
+            f"wallets={list(self._wallets.keys())})"
+        )

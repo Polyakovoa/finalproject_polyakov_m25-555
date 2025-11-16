@@ -10,6 +10,7 @@ from ..infra.settings import settings
 
 logger = logging.getLogger("valutatrade.parser")
 
+
 class RateStorage:
     """Класс для работы с хранилищем исторических данных курсов."""
 
@@ -22,18 +23,22 @@ class RateStorage:
         """Создает файл хранилища, если он не существует."""
         self.data_dir.mkdir(exist_ok=True)
         if not self.history_file.exists():
-            self.history_file.write_text('[]', encoding='utf-8')
+            self.history_file.write_text("[]", encoding="utf-8")
 
-    def _generate_rate_id(self, from_currency: str, to_currency: str, timestamp: str) -> str:  # noqa: E501
+    def _generate_rate_id(
+        self, from_currency: str, to_currency: str, timestamp: str
+    ) -> str:  # noqa: E501
         """Генерирует уникальный ID для записи курса."""
         # Нормализуем timestamp для использования в ID
-        normalized_ts = timestamp.replace(":", "").replace("-", "").replace(" ", "").split("+")[0]  # noqa: E501
+        normalized_ts = (
+            timestamp.replace(":", "").replace("-", "").replace(" ", "").split("+")[0]
+        )  # noqa: E501
         return f"{from_currency}_{to_currency}_{normalized_ts}"
 
     def _load_history(self) -> List[Dict[str, Any]]:
         """Загружает исторические данные из файла."""
         try:
-            with open(self.history_file, 'r', encoding='utf-8') as f:
+            with open(self.history_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             return []
@@ -42,7 +47,7 @@ class RateStorage:
         """Сохраняет исторические данные в файл."""
         try:
             # Простая запись в файл вместо атомарной замены
-            with open(self.history_file, 'w', encoding='utf-8') as f:
+            with open(self.history_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.error(f"Failed to save history: {e}")
@@ -72,7 +77,7 @@ class RateStorage:
             "rate": float(rate_data["rate"]),
             "timestamp": timestamp,
             "source": rate_data["source"],
-            "meta": rate_data.get("meta", {})
+            "meta": rate_data.get("meta", {}),
         }
 
         # Загружаем текущую историю
@@ -115,8 +120,9 @@ class RateStorage:
 
         return result
 
-    def get_rate_history(self, from_currency: str, to_currency: str,
-                        days: int = 7) -> List[Dict[str, Any]]:
+    def get_rate_history(
+        self, from_currency: str, to_currency: str, days: int = 7
+    ) -> List[Dict[str, Any]]:
         """
         Возвращает историю курса для указанной пары валют.
 
@@ -132,9 +138,12 @@ class RateStorage:
 
         # Фильтруем записи по паре валют
         filtered = [
-            record for record in history
-            if (record["from_currency"] == from_currency and
-                record["to_currency"] == to_currency)
+            record
+            for record in history
+            if (
+                record["from_currency"] == from_currency
+                and record["to_currency"] == to_currency
+            )
         ]
 
         # Сортируем по времени и ограничиваем период
@@ -143,8 +152,12 @@ class RateStorage:
         if days > 0:
             cutoff_date = datetime.utcnow().timestamp() - (days * 24 * 60 * 60)
             filtered = [
-                record for record in filtered
-                if datetime.fromisoformat(record["timestamp"].replace('Z', '+00:00')).timestamp() > cutoff_date  # noqa: E501
+                record
+                for record in filtered
+                if datetime.fromisoformat(
+                    record["timestamp"].replace("Z", "+00:00")
+                ).timestamp()
+                > cutoff_date  # noqa: E501
             ]
 
         return filtered
@@ -168,8 +181,12 @@ class RateStorage:
 
         initial_count = len(history)
         filtered_history = [
-            record for record in history
-            if datetime.fromisoformat(record["timestamp"].replace('Z', '+00:00')).timestamp() > cutoff_timestamp  # noqa: E501
+            record
+            for record in history
+            if datetime.fromisoformat(
+                record["timestamp"].replace("Z", "+00:00")
+            ).timestamp()
+            > cutoff_timestamp  # noqa: E501
         ]
 
         removed_count = initial_count - len(filtered_history)

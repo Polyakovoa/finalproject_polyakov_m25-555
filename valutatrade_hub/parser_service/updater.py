@@ -17,7 +17,7 @@ class RatesUpdater:
         self.storage = storage or RateStorage()
         self.api_clients = {
             "fiat": ExchangeRateApiClient(),
-            "crypto": CoinGeckoClient()
+            "crypto": CoinGeckoClient(),
         }
         self.updated_pairs: List[str] = []
 
@@ -35,7 +35,7 @@ class RatesUpdater:
             "successful_sources": 0,
             "failed_sources": 0,
             "sources": {},
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.utcnow().isoformat() + "Z",
         }
 
         # Собираем все курсы от всех источников
@@ -51,7 +51,7 @@ class RatesUpdater:
                 stats["sources"][source_type] = {
                     "status": "success",
                     "pairs_count": len(rates),
-                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
                 }
                 stats["successful_sources"] += 1
                 stats["total_pairs"] += len(rates)
@@ -63,7 +63,7 @@ class RatesUpdater:
                 stats["sources"][source_type] = {
                     "status": "failed",
                     "error": str(e),
-                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
                 }
                 stats["failed_sources"] += 1
 
@@ -75,8 +75,10 @@ class RatesUpdater:
         cache_success = self._update_local_cache(all_rates)
         stats["cache_updated"] = cache_success
 
-        logger.info(f"✅ Update completed: {stats['total_pairs']} pairs, "
-                   f"{stats['successful_sources']} successful sources")
+        logger.info(
+            f"✅ Update completed: {stats['total_pairs']} pairs, "
+            f"{stats['successful_sources']} successful sources"
+        )
 
         return self._format_cli_stats(stats)
 
@@ -91,7 +93,11 @@ class RatesUpdater:
                 from_currency, to_currency = pair_key.split("_")
 
                 # Определяем источник по типу валюты
-                source = "CoinGecko" if self._is_crypto(from_currency) else "ExchangeRate-API" # noqa: E501
+                source = (
+                    "CoinGecko"
+                    if self._is_crypto(from_currency)
+                    else "ExchangeRate-API"
+                )  # noqa: E501
 
                 rate_record = {
                     "from_currency": from_currency,
@@ -99,10 +105,7 @@ class RatesUpdater:
                     "rate": float(rate),
                     "timestamp": current_time,
                     "source": source,
-                    "meta": {
-                        "request_ms": 0,
-                        "status_code": 200
-                    }
+                    "meta": {"request_ms": 0, "status_code": 200},
                 }
 
                 # Сохраняем в историческое хранилище
@@ -117,7 +120,7 @@ class RatesUpdater:
 
         return {
             "historical_records_saved": saved_records,
-            "historical_pairs": self.updated_pairs
+            "historical_pairs": self.updated_pairs,
         }
 
     def _update_local_cache(self, rates: Dict[str, float]) -> bool:
@@ -128,7 +131,7 @@ class RatesUpdater:
             cache_data = {
                 "pairs": {},
                 "last_refresh": current_time,
-                "source": "ParserService"
+                "source": "ParserService",
             }
 
             # Преобразуем курсы в формат для rates.json
@@ -136,19 +139,26 @@ class RatesUpdater:
                 from_currency, to_currency = pair_key.split("_")
 
                 # Определяем источник для отображения
-                source = "CoinGecko" if self._is_crypto(from_currency) else "ExchangeRate-API" # noqa: E501
+                source = (
+                    "CoinGecko"
+                    if self._is_crypto(from_currency)
+                    else "ExchangeRate-API"
+                )  # noqa: E501
 
                 cache_data["pairs"][pair_key] = {
                     "rate": float(rate),
                     "updated_at": current_time,
-                    "source": source
+                    "source": source,
                 }
 
             # Сохраняем через DatabaseManager
             from ..infra.database import db
+
             db.save("rates", cache_data)
 
-            logger.info(f"💾 Local cache updated with {len(cache_data['pairs'])} rate pairs") # noqa: E501
+            logger.info(
+                f"💾 Local cache updated with {len(cache_data['pairs'])} rate pairs"
+            )  # noqa: E501
             return True
 
         except Exception as e:
@@ -171,7 +181,7 @@ class RatesUpdater:
             "crypto_rates": crypto_count,
             "errors": stats["failed_sources"],
             "timestamp": stats["timestamp"],
-            "details": stats
+            "details": stats,
         }
 
     def get_update_status(self) -> Dict[str, Any]:
@@ -179,5 +189,5 @@ class RatesUpdater:
         return {
             "last_updated_pairs": self.updated_pairs,
             "total_pairs": len(self.updated_pairs),
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.utcnow().isoformat() + "Z",
         }

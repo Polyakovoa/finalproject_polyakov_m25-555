@@ -79,9 +79,7 @@ class UserManager:
         portfolios_data = self._load_portfolios()
         WELCOME_BONUS = 300.0  # Приветственный бонус
         portfolios_data[str(user_id)] = {
-            "wallets": {
-                "USD": {"currency_code": "USD", "balance": WELCOME_BONUS}
-            }
+            "wallets": {"USD": {"currency_code": "USD", "balance": WELCOME_BONUS}}
         }
         self._save_portfolios(portfolios_data)
 
@@ -113,9 +111,7 @@ class UserManager:
         if not user_portfolio_data:
             # Создаем портфель с USD кошельком
             user_portfolio_data = {
-                "wallets": {
-                    "USD": {"currency_code": "USD", "balance": 0.0}
-                }
+                "wallets": {"USD": {"currency_code": "USD", "balance": 0.0}}
             }
             portfolios_data[str(user_id)] = user_portfolio_data
             self._save_portfolios(portfolios_data)
@@ -127,13 +123,15 @@ class UserManager:
             self._save_portfolios(portfolios_data)
         elif "USD" not in user_portfolio_data["wallets"]:
             # Если нет USD кошелька, добавляем его
-            user_portfolio_data["wallets"]["USD"] = {"currency_code": "USD", "balance": 0.0} # noqa: E501
+            user_portfolio_data["wallets"]["USD"] = {
+                "currency_code": "USD",
+                "balance": 0.0,
+            }
             self._save_portfolios(portfolios_data)
 
-        return Portfolio.from_dict({
-            "user_id": user_id,
-            "wallets": user_portfolio_data["wallets"]
-        })
+        return Portfolio.from_dict(
+            {"user_id": user_id, "wallets": user_portfolio_data["wallets"]}
+        )
 
     def save_user_portfolio(self, portfolio: Portfolio) -> None:
         """Сохраняет портфель пользователя."""
@@ -157,15 +155,39 @@ class CurrencyService:
             # Создаем новую структуру по умолчанию
             initial_rates = {
                 "pairs": {
-                    "EUR_USD": {"rate": 0.85, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
-                    "GBP_USD": {"rate": 0.73, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
-                    "JPY_USD": {"rate": 110.0, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
-                    "RUB_USD": {"rate": 80.0, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
-                    "BTC_USD": {"rate": 100000.0, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
-                    "ETH_USD": {"rate": 3000.0, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
+                    "EUR_USD": {
+                        "rate": 0.85,
+                        "updated_at": datetime.now().isoformat() + "Z",
+                        "source": "stub",
+                    },
+                    "GBP_USD": {
+                        "rate": 0.73,
+                        "updated_at": datetime.now().isoformat() + "Z",
+                        "source": "stub",
+                    },
+                    "JPY_USD": {
+                        "rate": 110.0,
+                        "updated_at": datetime.now().isoformat() + "Z",
+                        "source": "stub",
+                    },
+                    "RUB_USD": {
+                        "rate": 80.0,
+                        "updated_at": datetime.now().isoformat() + "Z",
+                        "source": "stub",
+                    },
+                    "BTC_USD": {
+                        "rate": 100000.0,
+                        "updated_at": datetime.now().isoformat() + "Z",
+                        "source": "stub",
+                    },
+                    "ETH_USD": {
+                        "rate": 3000.0,
+                        "updated_at": datetime.now().isoformat() + "Z",
+                        "source": "stub",
+                    },
                 },
                 "last_refresh": datetime.now().isoformat() + "Z",
-                "source": "stub"
+                "source": "stub",
             }
             db.save("rates", initial_rates)
 
@@ -192,19 +214,25 @@ class CurrencyService:
         # 1. Сначала пробуем получить курс из локального кэша
         cached_rate = self._get_cached_rate(from_currency, to_currency)
         if cached_rate is not None:
-            logger.debug(f"Using CACHED rate for {from_currency}->{to_currency}: {cached_rate}") # noqa: E501
+            logger.debug(
+                f"Using CACHED rate for {from_currency}->{to_currency}: {cached_rate}"
+            )
             return cached_rate
 
         # 2. Потом пробуем получить курс из исторических данных Parser Service
         historical_rate = self._get_historical_rate(from_currency, to_currency)
         if historical_rate is not None:
-            logger.debug(f"Using HISTORICAL rate for {from_currency}->{to_currency}: {historical_rate}") # noqa: E501
+            logger.debug(
+                f"Using HISTORICAL rate for {from_currency}->{to_currency}: {historical_rate}" # noqa: E501
+            )
             return historical_rate
 
         # 3. Или используем заглушку
         try:
             stub_rate = self._get_stub_rate(from_currency, to_currency)
-            logger.debug(f"Using STUB rate for {from_currency}->{to_currency}: {stub_rate}") # noqa: E501
+            logger.debug(
+                f"Using STUB rate for {from_currency}->{to_currency}: {stub_rate}"
+            )
             return stub_rate
         except Exception as e:
             raise ApiRequestError(f"Сервис курсов временно недоступен: {e}")
@@ -220,18 +248,34 @@ class CurrencyService:
                 pair_key = f"{from_currency}_{to_currency}"
                 if pair_key in rates_data["pairs"]:
                     rate_data = rates_data["pairs"][pair_key]
-                    updated_at = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
-                    if datetime.now().replace(tzinfo=None) - updated_at.replace(tzinfo=None) < self.rates_ttl: # noqa: E501
-                        logger.debug(f"Using cached rate from pairs: {pair_key} = {rate_data['rate']}") # noqa: E501
+                    updated_at = datetime.fromisoformat(
+                        rate_data["updated_at"].replace("Z", "+00:00")
+                    )
+                    if (
+                        datetime.now().replace(tzinfo=None)
+                        - updated_at.replace(tzinfo=None)
+                        < self.rates_ttl
+                    ):
+                        logger.debug(
+                            f"Using cached rate from pairs: {pair_key} = {rate_data['rate']}" # noqa: E501
+                        )
                         return rate_data["rate"]
 
                 # Обратная пара (to_from)
                 reverse_key = f"{to_currency}_{from_currency}"
                 if reverse_key in rates_data["pairs"]:
                     rate_data = rates_data["pairs"][reverse_key]
-                    updated_at = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
-                    if datetime.now().replace(tzinfo=None) - updated_at.replace(tzinfo=None) < self.rates_ttl: # noqa: E501
-                        logger.debug(f"Using cached reverse rate: {reverse_key} = {rate_data['rate']}") # noqa: E501
+                    updated_at = datetime.fromisoformat(
+                        rate_data["updated_at"].replace("Z", "+00:00")
+                    )
+                    if (
+                        datetime.now().replace(tzinfo=None)
+                        - updated_at.replace(tzinfo=None)
+                        < self.rates_ttl
+                    ):
+                        logger.debug(
+                            f"Using cached reverse rate: {reverse_key} = {rate_data['rate']}" # noqa: E501
+                        )
                         return rate_data["rate"]
 
             return None
@@ -254,7 +298,7 @@ class CurrencyService:
             "XRP": 0.5,
             "ADA": 0.4,
             "SOL": 100.0,
-            "DOT": 7.0
+            "DOT": 7.0,
         }
 
         if from_currency in stub_rates and to_currency in stub_rates:
@@ -264,10 +308,14 @@ class CurrencyService:
 
         logger.warning(f"No stub rate available for {from_currency}->{to_currency}")
         raise CurrencyNotFoundError(f"{from_currency} или {to_currency}")
-    def _get_historical_rate(self, from_currency: str, to_currency: str) -> Optional[float]: # noqa: E501
+
+    def _get_historical_rate(
+        self, from_currency: str, to_currency: str
+    ) -> Optional[float]:
         """Пытается получить курс из исторических данных Parser Service."""
         try:
             from ..parser_service.storage import RateStorage
+
             storage = RateStorage()
             latest_rates = storage.get_latest_rates("USD")
 
@@ -286,16 +334,20 @@ class CurrencyService:
             # Конвертация между двумя не-USD валютами
             elif from_currency in latest_rates and to_currency in latest_rates:
                 rate_from_usd = latest_rates[from_currency]  # USD за 1 from_currency
-                rate_to_usd = latest_rates[to_currency]      # USD за 1 to_currency
-                rate = rate_to_usd / rate_from_usd           # to_currency за 1 from_cu
-                logger.debug(f"Calculated {from_currency}->{to_currency}: {rate} (via USD)") # noqa: E501
+                rate_to_usd = latest_rates[to_currency]  # USD за 1 to_currency
+                rate = rate_to_usd / rate_from_usd  # to_currency за 1 from_cu
+                logger.debug(
+                    f"Calculated {from_currency}->{to_currency}: {rate} (via USD)"
+                )
                 return rate
 
             logger.debug(f"No historical rate found for {from_currency}->{to_currency}")
             return None
 
         except Exception as e:
-            logger.debug(f"Failed to get historical rate for {from_currency}->{to_currency}: {e}") # noqa: E501
+            logger.debug(
+                f"Failed to get historical rate for {from_currency}->{to_currency}: {e}"
+            )
             return None
 
     def get_rate_info(self, from_currency: str, to_currency: str) -> Dict[str, Any]:
@@ -324,9 +376,10 @@ class CurrencyService:
         if source == "Unknown":
             try:
                 from .currencies import get_currency
+
                 # Проверяем первую валюту в паре
                 curr_obj = get_currency(from_currency)
-                if hasattr(curr_obj, 'issuing_country'):
+                if hasattr(curr_obj, "issuing_country"):
                     source = "ExchangeRate-API"
                 else:
                     source = "CoinGecko"
@@ -341,7 +394,7 @@ class CurrencyService:
             "to_currency": to_currency,
             "rate": rate,
             "updated_at": updated_at,
-            "source": source
+            "source": source,
         }
 
 
@@ -355,10 +408,7 @@ class TradingService:
     @log_action("BUY", verbose=True)
     @measure_time
     def buy_currency(
-        self,
-        user_id: int,
-        currency: str,
-        amount: float
+        self, user_id: int, currency: str, amount: float
     ) -> Dict[str, Any]:
         """Покупает валюту для пользователя."""
         # Валидация входных данных
@@ -391,7 +441,7 @@ class TradingService:
             target_wallet = portfolio.add_currency(currency, 0.0)
 
         # Получаем USD кошелек
-        usd_wallet = portfolio.get_wallet('USD')
+        usd_wallet = portfolio.get_wallet("USD")
         old_usd_balance = usd_wallet.balance if usd_wallet else 0.0
 
         if not usd_wallet:
@@ -399,9 +449,7 @@ class TradingService:
 
         # Проверяем достаточно ли средств в USD кошельке
         if usd_wallet.balance < total_cost:
-            raise InsufficientFundsError(
-                usd_wallet.balance, total_cost, "USD"
-            )
+            raise InsufficientFundsError(usd_wallet.balance, total_cost, "USD")
 
         # Выполняем покупку
         try:
@@ -424,16 +472,13 @@ class TradingService:
             "old_balance": old_target_balance,
             "new_balance": target_wallet.balance,
             "old_usd_balance": old_usd_balance,
-            "new_usd_balance": usd_wallet.balance
+            "new_usd_balance": usd_wallet.balance,
         }
 
     @log_action("SELL", verbose=True)
     @measure_time
     def sell_currency(
-        self,
-        user_id: int,
-        currency: str,
-        amount: float
+        self, user_id: int, currency: str, amount: float
     ) -> Dict[str, Any]:
         """Продает валюту пользователя."""
         # Валидация входных данных
@@ -457,9 +502,7 @@ class TradingService:
 
         # Проверяем достаточность средств
         if source_wallet.balance < amount:
-            raise InsufficientFundsError(
-                source_wallet.balance, amount, currency
-            )
+            raise InsufficientFundsError(source_wallet.balance, amount, currency)
 
         # Получаем текущий курс
         try:
@@ -472,11 +515,11 @@ class TradingService:
         total_income = amount * rate
 
         # Получаем USD кошелек
-        usd_wallet = portfolio.get_wallet('USD')
+        usd_wallet = portfolio.get_wallet("USD")
         old_usd_balance = usd_wallet.balance if usd_wallet else 0.0
 
         if not usd_wallet:
-            usd_wallet = portfolio.add_currency('USD', 0.0)
+            usd_wallet = portfolio.add_currency("USD", 0.0)
 
         # Выполняем продажу
         try:
@@ -499,7 +542,7 @@ class TradingService:
             "old_balance": old_source_balance,
             "new_balance": source_wallet.balance,
             "old_usd_balance": old_usd_balance,
-            "new_usd_balance": usd_wallet.balance
+            "new_usd_balance": usd_wallet.balance,
         }
 
 
@@ -515,7 +558,7 @@ class SessionManager:
         """Создает файл сессии, если он не существует."""
         self.data_dir.mkdir(exist_ok=True)
         if not self.session_file.exists():
-            self.session_file.write_text('{}', encoding='utf-8')
+            self.session_file.write_text("{}", encoding="utf-8")
 
     @log_action("CREATE_SESSION")
     def create_session(self, user_id: int, username: str) -> None:
@@ -524,15 +567,15 @@ class SessionManager:
             "user_id": user_id,
             "username": username,
             "created_at": datetime.now().isoformat(),
-            "expires_at": (datetime.now() + timedelta(hours=24)).isoformat()
+            "expires_at": (datetime.now() + timedelta(hours=24)).isoformat(),
         }
-        with open(self.session_file, 'w', encoding='utf-8') as f:
+        with open(self.session_file, "w", encoding="utf-8") as f:
             json.dump(session_data, f, indent=2)
 
     def get_current_session(self) -> Dict[str, Any]:
         """Возвращает текущую активную сессию."""
         try:
-            with open(self.session_file, 'r', encoding='utf-8') as f:
+            with open(self.session_file, "r", encoding="utf-8") as f:
                 session_data = json.load(f)
 
             # Проверяем срок действия сессии
@@ -548,7 +591,7 @@ class SessionManager:
     @log_action("CLEAR_SESSION")
     def clear_session(self) -> None:
         """Очищает текущую сессию."""
-        with open(self.session_file, 'w', encoding='utf-8') as f:
+        with open(self.session_file, "w", encoding="utf-8") as f:
             json.dump({}, f, indent=2)
 
     def is_session_active(self) -> bool:

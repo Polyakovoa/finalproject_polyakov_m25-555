@@ -20,10 +20,9 @@ class BaseApiClient(ABC):
 
     def __init__(self):
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "ValutaTrade-Hub/1.0",
-            "Accept": "application/json"
-        })
+        self.session.headers.update(
+            {"User-Agent": "ValutaTrade-Hub/1.0", "Accept": "application/json"}
+        )
 
     @abstractmethod
     def fetch_rates(self) -> Dict[str, float]:
@@ -54,9 +53,7 @@ class BaseApiClient(ABC):
             try:
                 logger.debug(f"API request attempt {attempt + 1}: {url}")
                 response = self.session.get(
-                    url=url,
-                    params=params,
-                    timeout=config.REQUEST_TIMEOUT
+                    url=url, params=params, timeout=config.REQUEST_TIMEOUT
                 )
 
                 if response.status_code == 200:
@@ -70,7 +67,9 @@ class BaseApiClient(ABC):
                         raise ApiRequestError("Rate limit exceeded")
                 else:
                     logger.error(f"API error {response.status_code}: {response.text}")
-                    raise ApiRequestError(f"HTTP {response.status_code}: {response.text}") # noqa: E501
+                    raise ApiRequestError(
+                        f"HTTP {response.status_code}: {response.text}"
+                    )
 
             except RequestException as e:
                 logger.warning(f"Request exception on attempt {attempt + 1}: {e}")
@@ -87,7 +86,9 @@ class BaseApiClient(ABC):
                 else:
                     raise ApiRequestError(f"Unexpected error: {e}")
 
-        raise ApiRequestError(f"Failed to fetch data after {config.MAX_RETRIES} attempts") # noqa: E501
+        raise ApiRequestError(
+            f"Failed to fetch data after {config.MAX_RETRIES} attempts"
+        )
 
 
 class CoinGeckoClient(BaseApiClient):
@@ -150,13 +151,16 @@ class ExchangeRateApiClient(BaseApiClient):
                     inverted_rate = 1.0 / original_rate
                     rates[rate_key] = inverted_rate
 
-            logger.info(f"Fetched {len(rates)} fiat rates from ExchangeRate-API (inverted from {len(rates_data)} available)") # noqa: E501
+            logger.info(
+                f"Fetched {len(rates)} fiat rates from ExchangeRate-API (inverted from {len(rates_data)} available)" # noqa: E501
+            )
             return rates
 
         except ApiRequestError:
             raise
         except Exception as e:
             raise ApiRequestError(f"Failed to parse ExchangeRate-API response: {e}")
+
 
 class RateAPIClient:
     """Общий клиент для работы со всеми API курсов."""
@@ -175,7 +179,7 @@ class RateAPIClient:
         metadata = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "base_currency": config.BASE_CURRENCY,
-            "sources": {}
+            "sources": {},
         }
 
         # Получаем фиатные курсы
@@ -184,14 +188,14 @@ class RateAPIClient:
             all_rates.update(fiat_rates)
             metadata["sources"]["fiat"] = {
                 "source": "ExchangeRate-API",
-                "currencies_count": len(fiat_rates)
+                "currencies_count": len(fiat_rates),
             }
             logger.info(f"Successfully fetched {len(fiat_rates)} fiat rates")
         except ApiRequestError as e:
             logger.error(f"Failed to fetch fiat rates: {e}")
             metadata["sources"]["fiat"] = {
                 "source": "ExchangeRate-API-failed",
-                "error": str(e)
+                "error": str(e),
             }
 
         # Получаем крипто курсы
@@ -200,17 +204,14 @@ class RateAPIClient:
             all_rates.update(crypto_rates)
             metadata["sources"]["crypto"] = {
                 "source": "CoinGecko",
-                "currencies_count": len(crypto_rates)
+                "currencies_count": len(crypto_rates),
             }
             logger.info(f"Successfully fetched {len(crypto_rates)} crypto rates")
         except ApiRequestError as e:
             logger.error(f"Failed to fetch crypto rates: {e}")
             metadata["sources"]["crypto"] = {
                 "source": "CoinGecko-failed",
-                "error": str(e)
+                "error": str(e),
             }
 
-        return {
-            "rates": all_rates,
-            "metadata": metadata
-        }
+        return {"rates": all_rates, "metadata": metadata}

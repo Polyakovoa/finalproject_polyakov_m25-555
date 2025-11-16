@@ -25,9 +25,7 @@ class CLI:
     def __init__(self):
         self.user_manager = UserManager()
         self.currency_service = CurrencyService()
-        self.trading_service = TradingService(
-            self.user_manager, self.currency_service
-        )
+        self.trading_service = TradingService(self.user_manager, self.currency_service)
         self.session_manager = SessionManager()
         self.current_user: Optional[dict] = None
         self._load_session()
@@ -38,7 +36,7 @@ class CLI:
         if session_data:
             self.current_user = {
                 "id": session_data["user_id"],
-                "username": session_data["username"]
+                "username": session_data["username"],
             }
 
     def run(self):
@@ -57,11 +55,9 @@ class CLI:
   valutatrade show-rates --top 5
   valutatrade update-rates --source coingecko
   valutatrade logout
-            """
+            """,
         )
-        subparsers = parser.add_subparsers(
-            dest="command", help="Доступные команды"
-        )
+        subparsers = parser.add_subparsers(dest="command", help="Доступные команды")
 
         # register command
         register_parser = subparsers.add_parser(
@@ -70,18 +66,12 @@ class CLI:
         register_parser.add_argument(
             "--username", required=True, help="Имя пользователя"
         )
-        register_parser.add_argument(
-            "--password", required=True, help="Пароль"
-        )
+        register_parser.add_argument("--password", required=True, help="Пароль")
 
         # login command
         login_parser = subparsers.add_parser("login", help="Вход в систему")
-        login_parser.add_argument(
-            "--username", required=True, help="Имя пользователя"
-        )
-        login_parser.add_argument(
-            "--password", required=True, help="Пароль"
-        )
+        login_parser.add_argument("--username", required=True, help="Имя пользователя")
+        login_parser.add_argument("--password", required=True, help="Пароль")
 
         # logout command
         subparsers.add_parser("logout", help="Выход из системы")
@@ -97,11 +87,12 @@ class CLI:
         # buy command
         buy_parser = subparsers.add_parser("buy", help="Купить валюту")
         buy_parser.add_argument(
-            "--currency", required=True, help="Код покупаемой валюты (например: USD, EUR, BTC)" # noqa: E501
+            "--currency",
+            required=True,
+            help="Код покупаемой валюты (например: USD, EUR, BTC)", # noqa: E501
         )
         buy_parser.add_argument(
-            "--amount", type=float, required=True,
-            help="Количество покупаемой валюты"
+            "--amount", type=float, required=True, help="Количество покупаемой валюты"
         )
 
         # sell command
@@ -110,70 +101,52 @@ class CLI:
             "--currency", required=True, help="Код продаваемой валюты"
         )
         sell_parser.add_argument(
-            "--amount", type=float, required=True,
-            help="Количество продаваемой валюты"
+            "--amount", type=float, required=True, help="Количество продаваемой валюты"
         )
 
         # get-rate command
-        rate_parser = subparsers.add_parser(
-            "get-rate", help="Получить курс валюты"
-        )
+        rate_parser = subparsers.add_parser("get-rate", help="Получить курс валюты")
         rate_parser.add_argument(
-            "--from", required=True, dest="from_currency",
-            help="Исходная валюта"
+            "--from", required=True, dest="from_currency", help="Исходная валюта"
         )
-        rate_parser.add_argument(
-            "--to", required=True, help="Целевая валюта"
-        )
+        rate_parser.add_argument("--to", required=True, help="Целевая валюта")
 
         # list-currencies command
         subparsers.add_parser(
-            "list-currencies",
-            help="Показать список поддерживаемых валют"
+            "list-currencies", help="Показать список поддерживаемых валют"
         )
 
         # update-rates command
         update_parser = subparsers.add_parser(
-            "update-rates",
-            help="Обновить курсы валют из внешних API"
+            "update-rates", help="Обновить курсы валют из внешних API"
         )
         update_parser.add_argument(
             "--source",
             choices=["coingecko", "exchangerate", "all"],
             default="all",
-            help="Источник данных (coingecko, exchangerate, all)"
+            help="Источник данных (coingecko, exchangerate, all)",
         )
 
         # show-rates command
         show_rates_parser = subparsers.add_parser(
-            "show-rates",
-            help="Показать актуальные курсы из локального кэша"
+            "show-rates", help="Показать актуальные курсы из локального кэша"
         )
         show_rates_parser.add_argument(
-            "--currency",
-            help="Показать курс только для указанной валюты"
+            "--currency", help="Показать курс только для указанной валюты"
         )
         show_rates_parser.add_argument(
-            "--top",
-            type=int,
-            help="Показать N самых дорогих криптовалют"
+            "--top", type=int, help="Показать N самых дорогих криптовалют"
         )
         show_rates_parser.add_argument(
-            "--base",
-            default="USD",
-            help="Базовая валюта для отображения курсов"
+            "--base", default="USD", help="Базовая валюта для отображения курсов"
         )
 
         # add-funds command
         funds_parser = subparsers.add_parser(
-            "add-funds",
-            help="Пополнить баланс (только для USD)"
+            "add-funds", help="Пополнить баланс (только для USD)"
         )
         funds_parser.add_argument(
-            "--amount",
-            type=float,
-            required=True,
-            help="Сумма пополнения в USD"
+            "--amount", type=float, required=True, help="Сумма пополнения в USD"
         )
 
         args = parser.parse_args()
@@ -200,9 +173,9 @@ class CLI:
         portfolio = self.user_manager.get_user_portfolio(user_id)
 
         # Получаем или создаем USD кошелек
-        usd_wallet = portfolio.get_wallet('USD')
+        usd_wallet = portfolio.get_wallet("USD")
         if not usd_wallet:
-            usd_wallet = portfolio.add_currency('USD', 0.0)
+            usd_wallet = portfolio.add_currency("USD", 0.0)
 
         old_balance = usd_wallet.balance
         new_balance = old_balance + args.amount
@@ -276,8 +249,12 @@ class CLI:
                 # Показываем детали по источникам
                 if "details" in stats and "sources" in stats["details"]:
                     for source, source_stats in stats["details"]["sources"].items():
-                        status_icon = "✅" if source_stats["status"] == "success" else "❌" # noqa: E501
-                        print(f"   {status_icon} {source}: {source_stats.get('pairs_count', 0)} пар") # noqa: E501
+                        status_icon = (
+                            "✅" if source_stats["status"] == "success" else "❌"
+                        )
+                        print(
+                            f"   {status_icon} {source}: {source_stats.get('pairs_count', 0)} пар" # noqa: E501
+                        )
             else:
                 print("ℹ️  Новые курсы не получены (возможно, временные проблемы с API)")
 
@@ -295,7 +272,9 @@ class CLI:
 
             if not cache_data or "pairs" not in cache_data or not cache_data["pairs"]:
                 print("❌ Локальный кэш курсов пуст.")
-                print("   💡 Выполните 'valutatrade update-rates', чтобы загрузить данные.") # noqa: E501
+                print(
+                    "   💡 Выполните 'valutatrade update-rates', чтобы загрузить данные." # noqa: E501
+                )
                 return
 
             pairs = cache_data["pairs"]
@@ -303,7 +282,7 @@ class CLI:
 
             # Форматируем время обновления
             try:
-                dt = datetime.fromisoformat(last_refresh.replace('Z', '+00:00'))
+                dt = datetime.fromisoformat(last_refresh.replace("Z", "+00:00"))
                 refresh_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
             except Exception:
                 refresh_str = last_refresh
@@ -323,10 +302,12 @@ class CLI:
 
         except FileNotFoundError:
             print("❌ Файл кэша курсов не найден.")
-            print("   💡 Выполните 'valutatrade update-rates', чтобы загрузить данные.")
+            print("💡 Выполните 'valutatrade update-rates', чтобы загрузить данные.")
         except json.JSONDecodeError:
             print("❌ Ошибка чтения файла кэша.")
-            print("   💡 Выполните 'valutatrade update-rates', чтобы перезагрузить данные.") # noqa: E501
+            print(
+                "💡 Выполните 'valutatrade update-rates', чтобы перезагрузить данные."
+            )
 
     def _filter_rates(self, pairs: dict, args) -> list:
         """Применяет фильтры к списку курсов."""
@@ -385,17 +366,21 @@ class CLI:
         for pair_key, rate_data in sorted_pairs:
             # Форматируем время
             try:
-                dt = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
+                dt = datetime.fromisoformat(
+                    rate_data["updated_at"].replace("Z", "+00:00")
+                )  # noqa: E501
                 time_str = dt.strftime("%H:%M:%S")
             except Exception:
                 time_str = rate_data["updated_at"]
 
-            table.add_row([
-                pair_key,
-                f"{rate_data['rate']:.8f}",
-                time_str,
-                rate_data.get("source", "Unknown")
-            ])
+            table.add_row(
+                [
+                    pair_key,
+                    f"{rate_data['rate']:.8f}",
+                    time_str,
+                    rate_data.get("source", "Unknown"),
+                ]
+            )
 
         print(table)
 
@@ -408,15 +393,14 @@ class CLI:
         if args.top:
             # Для --top сортируем по убыванию курса и берем первые N
             crypto_pairs = [
-                (pair, data) for pair, data in pairs
+                (pair, data)
+                for pair, data in pairs
                 if self._is_crypto(pair.split("_")[0])
             ]
             sorted_crypto = sorted(
-                crypto_pairs,
-                key=lambda x: x[1]["rate"],
-                reverse=True
+                crypto_pairs, key=lambda x: x[1]["rate"], reverse=True
             )
-            return sorted_crypto[:args.top]
+            return sorted_crypto[: args.top]
         else:
             # Обычная сортировка по алфавиту
             return sorted(pairs, key=lambda x: x[0])
@@ -428,7 +412,9 @@ class CLI:
 
     def _suggest_currency_help(self):
         """Предлагает помощь по валютам при ошибке CurrencyNotFoundError."""
-        print("\n💡 Для просмотра доступных валют используйте: valutatrade list-currencies") # noqa: E501
+        print(
+            "\n💡Для просмотра доступных валют используйте: valutatrade list-currencies"
+        )
         print("   Или попробуйте одну из популярных валют: USD, EUR, GBP, BTC, ETH")
 
     def _handle_register(self, args):
@@ -436,15 +422,14 @@ class CLI:
         user = self.user_manager.register_user(args.username, args.password)
         print(f"✅ Пользователь '{user.username}' зарегистрирован (id={user.user_id}).")
         print("🎉 Спасибо за регистрацию! Приветственный бонус - 300 USD!")
-        print(f"   🔑 Войдите в систему: valutatrade login --username {user.username} --password ****") # noqa: E501
+        print(
+            f"   🔑 Войдите в систему: valutatrade login --username {user.username} --password ****" # noqa: E501
+        )
 
     def _handle_login(self, args):
         """Обрабатывает команду login."""
         user = self.user_manager.authenticate_user(args.username, args.password)
-        self.current_user = {
-            "id": user.user_id,
-            "username": user.username
-        }
+        self.current_user = {"id": user.user_id, "username": user.username}
         self.session_manager.create_session(user.user_id, user.username)
         print(f"✅ Вы вошли как '{user.username}'")
 
@@ -497,17 +482,9 @@ class CLI:
                     )
                     value = wallet.balance * rate
 
-                table.add_row([
-                    currency_code,
-                    f"{wallet.balance:.4f}",
-                    f"{value:.2f}"
-                ])
+                table.add_row([currency_code, f"{wallet.balance:.4f}", f"{value:.2f}"])
             except (CurrencyNotFoundError, ApiRequestError):
-                table.add_row([
-                    currency_code,
-                    f"{wallet.balance:.4f}",
-                    "неизвестно"
-                ])
+                table.add_row([currency_code, f"{wallet.balance:.4f}", "неизвестно"])
 
         print(table)
         print(f"{'💰 ИТОГО:':>20} {total_value:,.2f} {base_currency}")
@@ -522,18 +499,22 @@ class CLI:
 
         try:
             result = self.trading_service.buy_currency(
-                self.current_user["id"],
-                args.currency.upper(),
-                args.amount
+                self.current_user["id"], args.currency.upper(), args.amount
             )
 
             print("✅ Покупка выполнена успешно!")
-            print(f"   💰 Куплено: {result['amount']:.4f} {result['currency']} ({result['currency_name']})") # noqa: E501
+            print(
+                f"   💰 Куплено: {result['amount']:.4f} {result['currency']} ({result['currency_name']})" # noqa: E501
+            )
             print(f"   📈 Курс: {result['rate']:.4f} USD/{result['currency']}")
             print(f"   💵 Стоимость: {result['total_cost']:,.2f} USD")
             print("   📊 Изменения баланса:")
-            print(f"      - {result['currency']}: {result['old_balance']:.4f} → {result['new_balance']:.4f}") # noqa: E501
-            print(f"      - USD: {result['old_usd_balance']:.2f} → {result['new_usd_balance']:.2f}") # noqa: E501
+            print(
+                f"      - {result['currency']}: {result['old_balance']:.4f} → {result['new_balance']:.4f}" # noqa: E501
+            )
+            print(
+                f"      - USD: {result['old_usd_balance']:.2f} → {result['new_usd_balance']:.2f}" # noqa: E501
+            )
 
         except CurrencyNotFoundError:
             raise CurrencyNotFoundError(args.currency.upper())
@@ -550,18 +531,22 @@ class CLI:
 
         try:
             result = self.trading_service.sell_currency(
-                self.current_user["id"],
-                args.currency.upper(),
-                args.amount
+                self.current_user["id"], args.currency.upper(), args.amount
             )
 
             print("✅ Продажа выполнена успешно!")
-            print(f"   💰 Продано: {result['amount']:.4f} {result['currency']} ({result['currency_name']})") # noqa: E501
+            print(
+                f"   💰 Продано: {result['amount']:.4f} {result['currency']} ({result['currency_name']})" # noqa: E501
+            )
             print(f"   📈 Курс: {result['rate']:.4f} USD/{result['currency']}")
             print(f"   💵 Выручка: {result['total_income']:,.2f} USD")
             print("   📊 Изменения баланса:")
-            print(f"      - {result['currency']}: {result['old_balance']:.4f} → {result['new_balance']:.4f}") # noqa: E501
-            print(f"      - USD: {result['old_usd_balance']:.2f} → {result['new_usd_balance']:.2f}") # noqa: E501
+            print(
+                f"      - {result['currency']}: {result['old_balance']:.4f} → {result['new_balance']:.4f}" # noqa: E501
+            )
+            print(
+                f"      - USD: {result['old_usd_balance']:.2f} → {result['new_usd_balance']:.2f}" # noqa: E501
+            )
 
         except CurrencyNotFoundError:
             raise CurrencyNotFoundError(args.currency.upper())
@@ -585,7 +570,7 @@ class CLI:
 
             # Показываем обратный курс
             if from_currency != to_currency:
-                reverse_rate = 1.0 / rate_info['rate']
+                reverse_rate = 1.0 / rate_info["rate"]
                 print(f"   {to_currency} → {from_currency}: {reverse_rate:.8f}")
 
         except CurrencyNotFoundError as e:
@@ -602,19 +587,14 @@ class CLI:
         table.align = "l"
 
         for code, currency in currencies.items():
-            currency_type = "FIAT" if hasattr(currency, 'issuing_country') else "CRYPTO"
+            currency_type = "FIAT" if hasattr(currency, "issuing_country") else "CRYPTO"
 
             if currency_type == "FIAT":
                 extra_info = f"Страна: {currency.issuing_country}"
             else:
                 extra_info = f"Алгоритм: {currency.algorithm}"
 
-            table.add_row([
-                code,
-                currency_type,
-                currency.name,
-                extra_info
-            ])
+            table.add_row([code, currency_type, currency.name, extra_info])
 
         print("📋 Поддерживаемые валюты:")
         print(table)

@@ -23,7 +23,7 @@ class JsonFormatter(logging.Formatter):
         }
 
         # Добавляем дополнительные поля если они есть
-        if hasattr(record, 'action_data'):
+        if hasattr(record, "action_data"):
             log_entry.update(record.action_data)
 
         return json.dumps(log_entry, ensure_ascii=False)
@@ -35,7 +35,9 @@ def setup_logging() -> None:
     log_dir.mkdir(exist_ok=True)
 
     log_level = getattr(logging, settings.get("log_level", "INFO").upper())
-    log_format = settings.get("log_format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s") # noqa: E501
+    log_format = settings.get(
+        "log_format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )  # noqa: E501
 
     # Основной логгер приложения
     logger = logging.getLogger("valutatrade")
@@ -47,7 +49,7 @@ def setup_logging() -> None:
         log_file,
         maxBytes=10 * 1024 * 1024,  # 10 MB
         backupCount=5,
-        encoding='utf-8'
+        encoding="utf-8",
     )
     file_handler.setLevel(log_level)
 
@@ -57,7 +59,7 @@ def setup_logging() -> None:
         actions_file,
         maxBytes=5 * 1024 * 1024,  # 5 MB
         backupCount=3,
-        encoding='utf-8'
+        encoding="utf-8",
     )
     actions_handler.setLevel(logging.INFO)
     actions_handler.setFormatter(JsonFormatter())
@@ -85,7 +87,7 @@ def setup_logging() -> None:
         user_ops_file,
         maxBytes=5 * 1024 * 1024,  # 5 MB
         backupCount=3,
-        encoding='utf-8'
+        encoding="utf-8",
     )
     user_ops_handler.setFormatter(JsonFormatter())
     user_ops_logger.addHandler(user_ops_handler)
@@ -99,7 +101,7 @@ def setup_logging() -> None:
         api_file,
         maxBytes=5 * 1024 * 1024,  # 5 MB
         backupCount=3,
-        encoding='utf-8'
+        encoding="utf-8",
     )
     api_handler.setFormatter(formatter)
     api_logger.addHandler(api_handler)

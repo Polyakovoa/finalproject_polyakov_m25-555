@@ -16,10 +16,10 @@ class SettingsLoader:
     а также для совместимости с наследованием при необходимости.
     """
 
-    _instance: Optional['SettingsLoader'] = None
+    _instance: Optional["SettingsLoader"] = None
     _initialized: bool = False
 
-    def __new__(cls) -> 'SettingsLoader':
+    def __new__(cls) -> "SettingsLoader":
         """Гарантирует создание только одного экземпляра класса."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -62,7 +62,9 @@ class SettingsLoader:
         if pyproject_path.exists():
             try:
                 pyproject_config = toml.load(pyproject_path)
-                valutatrade_config = pyproject_config.get("tool", {}).get("valutatrade", {}) # noqa: E501
+                valutatrade_config = pyproject_config.get("tool", {}).get(
+                    "valutatrade", {}
+                )  # noqa: E501
                 default_config.update(valutatrade_config)
             except Exception as e:
                 print(f"Warning: Could not load pyproject.toml: {e}")
@@ -71,7 +73,7 @@ class SettingsLoader:
         config_json_path = Path("config.json")
         if config_json_path.exists():
             try:
-                with open(config_json_path, 'r', encoding='utf-8') as f:
+                with open(config_json_path, "r", encoding="utf-8") as f:
                     json_config = json.load(f)
                 default_config.update(json_config)
             except Exception as e:
@@ -83,18 +85,25 @@ class SettingsLoader:
             "VALUTATRADE_RATES_TTL": "rates_ttl_seconds",
             "VALUTATRADE_BASE_CURRENCY": "default_base_currency",
             "VALUTATRADE_LOG_LEVEL": "log_level",
-            "VALUTATRADE_SESSION_TIMEOUT": "session_timeout_hours"
+            "VALUTATRADE_SESSION_TIMEOUT": "session_timeout_hours",
         }
 
         for env_var, config_key in env_mapping.items():
             env_value = os.getenv(env_var)
             if env_value is not None:
                 # Преобразуем типы данных
-                if config_key in ["rates_ttl_seconds", "session_timeout_hours", "max_login_attempts", "api_timeout_seconds"]: # noqa: E501
+                if config_key in [
+                    "rates_ttl_seconds",
+                    "session_timeout_hours",
+                    "max_login_attempts",
+                    "api_timeout_seconds",
+                ]:  # noqa: E501
                     try:
                         default_config[config_key] = int(env_value)
                     except ValueError:
-                        print(f"Warning: Invalid integer value for {env_var}: {env_value}") # noqa: E501
+                        print(
+                            f"Warning: Invalid integer value for {env_var}: {env_value}"
+                        )  # noqa: E501
                 else:
                     default_config[config_key] = env_value
 
@@ -105,10 +114,7 @@ class SettingsLoader:
 
     def _ensure_directories(self) -> None:
         """Создает необходимые директории, если они не существуют."""
-        directories = [
-            self.get("data_dir"),
-            self.get("log_dir")
-        ]
+        directories = [self.get("data_dir"), self.get("log_dir")]
 
         for directory in directories:
             if directory:

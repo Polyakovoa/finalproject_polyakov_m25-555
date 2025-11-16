@@ -12,10 +12,10 @@ class DatabaseManager:
     Менеджер базы данных с гарантией единственного экземпляра (Singleton).
     """
 
-    _instance: Optional['DatabaseManager'] = None
+    _instance: Optional["DatabaseManager"] = None
     _initialized: bool = False
 
-    def __new__(cls) -> 'DatabaseManager':
+    def __new__(cls) -> "DatabaseManager":
         """Гарантирует создание только одного экземпляра класса."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -37,7 +37,7 @@ class DatabaseManager:
     def _read_file(self, file_path: Path) -> Any:
         """Читает данные из файла."""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             # Возвращаем значение по умолчанию в зависимости от ожидаемой структуры
@@ -53,7 +53,7 @@ class DatabaseManager:
     def _write_file(self, file_path: Path, data: Any) -> None:
         """Записывает данные в файл."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
     def load(self, collection: str) -> Any:
