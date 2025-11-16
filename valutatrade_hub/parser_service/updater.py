@@ -183,36 +183,71 @@ class RateUpdater:
     def update_local_cache(self) -> bool:
         """
         Обновляет локальный кэш rates.json из исторических данных.
-
+        
         Returns:
             True если обновление успешно
         """
         try:
             # Получаем последние курсы
             latest_rates = self.storage.get_latest_rates("USD")
-
-            # Создаем структуру для rates.json
+            
+            # Создаем новую структуру для rates.json
             cache_data = {
-                "source": "ParserService",
+                "pairs": {},
                 "last_refresh": datetime.utcnow().isoformat() + "Z",
-                "rates": {}
+                "source": "ParserService"
             }
-
-            # Добавляем все пары валют
+            
+            # Добавляем все пары валют в новом формате
             for currency, rate in latest_rates.items():
+                if currency == "USD":
+                    continue  # Пропускаем базовую валюту
+                    
                 pair_key = f"{currency}_USD"
-                cache_data["rates"][pair_key] = {
+                
+                # Получаем информацию о последнем обновлении для этой пары
+                try:
+                    history = self.storage.get_rate_history(currency, "USD", days=1)
+                    if history:
+                        latest_record = history[0]  # Самый свежий запись
+                        updated_at = latest_record["timestamp"]
+                        source = latest_record["source"]
+                    else:
+                        # Если нет истории, определяем источник по типу валюты
+                        from ...core.currencies import get_currency
+                        currency_obj = get_currency(currency)
+                        if hasattr(currency_obj, 'issuing_country'):  # Фиатная валюта
+                            source = "ExchangeRate-API"
+                        else:  # Криптовалюта
+                            source = "CoinGecko"
+                        updated_at = datetime.utcnow().isoformat() + "Z"
+                except Exception as e:
+                    logger.debug(f"Could not get history for {currency}: {e}")
+                    # Определяем источник по типу валюты как fallback
+                    try:
+                        from ...core.currencies import get_currency
+                        currency_obj = get_currency(currency)
+                        if hasattr(currency_obj, 'issuing_country'):
+                            source = "ExchangeRate-API"
+                        else:
+                            source = "CoinGecko"
+                    except:
+                        source = "Unknown"
+                    updated_at = datetime.utcnow().isoformat() + "Z"
+                
+                cache_data["pairs"][pair_key] = {
                     "rate": rate,
-                    "updated_at": datetime.utcnow().isoformat() + "Z"
+                    "updated_at": updated_at,
+                    "source": source
                 }
-
+            
             # Сохраняем в rates.json через DatabaseManager
             from ..infra.database import db
             db.save("rates", cache_data)
-
-            logger.info(f"Local cache updated with {len(latest_rates)} rates")
+            
+            logger.info(f"Local cache updated with {len(cache_data['pairs'])} rate pairs") # noqa: E501
             return True
-
+            
         except Exception as e:
             logger.error(f"Failed to update local cache: {e}")
             return False

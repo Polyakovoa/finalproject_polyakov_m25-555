@@ -153,16 +153,18 @@ class CurrencyService:
     def _ensure_rates_file(self) -> None:
         """Создает файл курсов, если он не существует."""
         if not db.load("rates"):
+            # Создаем новую структуру по умолчанию
             initial_rates = {
-                "USD_USD": {"rate": 1.0, "updated_at": datetime.now().isoformat()},
-                "EUR_USD": {"rate": 0.85, "updated_at": datetime.now().isoformat()},
-                "GBP_USD": {"rate": 0.73, "updated_at": datetime.now().isoformat()},
-                "JPY_USD": {"rate": 110.0, "updated_at": datetime.now().isoformat()},
-                "RUB_USD": {"rate": 80.0, "updated_at": datetime.now().isoformat()},
-                "BTC_USD": {"rate": 100000.0, "updated_at": datetime.now().isoformat()},
-                "ETH_USD": {"rate": 3000.0, "updated_at": datetime.now().isoformat()},
-                "source": "stub",
-                "last_refresh": datetime.now().isoformat()
+                "pairs": {
+                    "EUR_USD": {"rate": 0.85, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
+                    "GBP_USD": {"rate": 0.73, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
+                    "JPY_USD": {"rate": 110.0, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
+                    "RUB_USD": {"rate": 80.0, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
+                    "BTC_USD": {"rate": 100000.0, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
+                    "ETH_USD": {"rate": 3000.0, "updated_at": datetime.now().isoformat() + "Z", "source": "stub"}, # noqa: E501
+                },
+                "last_refresh": datetime.now().isoformat() + "Z",
+                "source": "stub"
             }
             db.save("rates", initial_rates)
 
@@ -190,44 +192,68 @@ class CurrencyService:
         # 1. пробуем получить курс из исторических данных Parser Service
         historical_rate = self._get_historical_rate(from_currency, to_currency)
         if historical_rate is not None:
-            logger.debug(f"Using historical rate for {from_currency}->{to_currency}: {historical_rate}")
+            logger.debug(f"Using historical rate for {from_currency}->{to_currency}: {historical_rate}") # noqa: E501
             return historical_rate
 
         # 2. пробуем получить курс из локального кэша
         cached_rate = self._get_cached_rate(from_currency, to_currency)
         if cached_rate is not None:
-            logger.debug(f"Using cached rate for {from_currency}->{to_currency}: {cached_rate}")
+            logger.debug(f"Using cached rate for {from_currency}->{to_currency}: {cached_rate}") # noqa: E501
             return cached_rate
 
         # 3. или используем заглушку
         try:
             stub_rate = self._get_stub_rate(from_currency, to_currency)
-            logger.debug(f"Using stub rate for {from_currency}->{to_currency}: {stub_rate}")
+            logger.debug(f"Using stub rate for {from_currency}->{to_currency}: {stub_rate}") # noqa: E501
             return stub_rate
         except Exception as e:
             raise ApiRequestError(f"Сервис курсов временно недоступен: {e}")
 
-    def _get_cached_rate(self, from_currency: str, to_currency: str) -> Optional[float]:
+    def _get_cached_rate(self, from_currency: str, to_currency: str) -> Optional[float]: # noqa: E501
         """Пытается получить курс из локального кэша rates.json."""
         try:
             rates_data = self._load_rates()
 
-            # Прямая пара (from_to)
-            pair_key = f"{from_currency}_{to_currency}"
-            if pair_key in rates_data.get("rates", {}):
-                rate_data = rates_data["rates"][pair_key]
-                # Проверяем свежесть данных
-                updated_at = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
-                if datetime.now().replace(tzinfo=None) - updated_at.replace(tzinfo=None) < self.rates_ttl:  # noqa: E501
-                    return rate_data["rate"]
+            # Проверяем новую структуру с "pairs"
+            if "pairs" in rates_data:
+                # Прямая пара (from_to)
+                pair_key = f"{from_currency}_{to_currency}"
+                if pair_key in rates_data["pairs"]:
+                    rate_data = rates_data["pairs"][pair_key]
+                    # Проверяем свежесть данных
+                    updated_at = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
+                    if datetime.now().replace(tzinfo=None) - updated_at.replace(tzinfo=None) < self.rates_ttl: # noqa: E501
+                        logger.debug(f"Using cached rate from pairs: {pair_key} = {rate_data['rate']}") # noqa: E501
+                        return rate_data["rate"]
 
-            # Обратная пара (to_from)
-            reverse_key = f"{to_currency}_{from_currency}"
-            if reverse_key in rates_data.get("rates", {}):
-                rate_data = rates_data["rates"][reverse_key]
-                updated_at = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00'))  # noqa: E501
-                if datetime.now().replace(tzinfo=None) - updated_at.replace(tzinfo=None) < self.rates_ttl:  # noqa: E501
-                    return 1.0 / rate_data["rate"]
+                # Обратная пара (to_from)
+                reverse_key = f"{to_currency}_{from_currency}"
+                if reverse_key in rates_data["pairs"]:
+                    rate_data = rates_data["pairs"][reverse_key]
+                    updated_at = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
+                    if datetime.now().replace(tzinfo=None) - updated_at.replace(tzinfo=None) < self.rates_ttl: # noqa: E501
+                        logger.debug(f"Using cached reverse rate: {reverse_key} = {rate_data['rate']}") # noqa: E501
+                        return 1.0 / rate_data["rate"]
+
+            # Поддержка старой структуры для обратной совместимости
+            elif "rates" in rates_data:
+                # Прямая пара (from_to)
+                pair_key = f"{from_currency}_{to_currency}"
+                if pair_key in rates_data["rates"]:
+                    rate_data = rates_data["rates"][pair_key]
+                    updated_at = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
+                    if datetime.now().replace(tzinfo=None) - updated_at.replace(tzinfo=None) < self.rates_ttl: # noqa: E501
+                        logger.debug(f"Using cached rate from old structure: {pair_key} = {rate_data['rate']}") # noqa: E501
+                        return rate_data["rate"]
+
+                # Обратная пара (to_from)
+                reverse_key = f"{to_currency}_{from_currency}"
+                if reverse_key in rates_data["rates"]:
+                    rate_data = rates_data["rates"][reverse_key]
+                    updated_at = datetime.fromisoformat(rate_data["updated_at"].replace('Z', '+00:00')) # noqa: E501
+                    if datetime.now().replace(tzinfo=None) - updated_at.replace(tzinfo=None) < self.rates_ttl: # noqa: E501
+                        logger.debug(f"Using cached reverse rate from old structure: {reverse_key} = {rate_data['rate']}") # noqa: E501
+                        return 1.0 / rate_data["rate"]
 
             return None
 
@@ -251,23 +277,23 @@ class CurrencyService:
             "SOL": 100.0,
             "DOT": 7.0
         }
-        
+
         if from_currency in stub_rates and to_currency in stub_rates:
             rate = stub_rates[to_currency] / stub_rates[from_currency]
             logger.debug(f"Using stub rate: {from_currency}->{to_currency} = {rate}")
             return rate
-        
+
         logger.warning(f"No stub rate available for {from_currency}->{to_currency}")
         raise CurrencyNotFoundError(f"{from_currency} или {to_currency}")
-    def _get_historical_rate(self, from_currency: str, to_currency: str) -> Optional[float]:
+    def _get_historical_rate(self, from_currency: str, to_currency: str) -> Optional[float]: # noqa: E501
         """Пытается получить курс из исторических данных Parser Service."""
         try:
             from ..parser_service.storage import RateStorage
             storage = RateStorage()
             latest_rates = storage.get_latest_rates("USD")
-            
+
             logger.debug(f"Available historical rates: {list(latest_rates.keys())}")
-            
+
             # Если обе валюты относительно USD
             if from_currency == "USD" and to_currency in latest_rates:
                 rate = latest_rates[to_currency]
@@ -282,41 +308,60 @@ class CurrencyService:
                 rate_from_usd = latest_rates[from_currency]
                 rate_to_usd = latest_rates[to_currency]
                 rate = rate_to_usd / rate_from_usd
-                logger.debug(f"Calculated {from_currency}->{to_currency}: {rate} (via USD)")
+                logger.debug(f"Calculated {from_currency}->{to_currency}: {rate} (via USD)") # noqa: E501
                 return rate
-            
+
             logger.debug(f"No historical rate found for {from_currency}->{to_currency}")
             return None
-            
+
         except Exception as e:
-            logger.debug(f"Failed to get historical rate for {from_currency}->{to_currency}: {e}")
+            logger.debug(f"Failed to get historical rate for {from_currency}->{to_currency}: {e}") # noqa: E501
             return None
 
     def get_rate_info(self, from_currency: str, to_currency: str) -> Dict[str, Any]:
         """Возвращает информацию о курсе включая время обновления."""
         rate = self.get_exchange_rate(from_currency, to_currency)
-
-        # Пытаемся получить время обновления из исторических данных
-        try:
-            from ..parser_service.storage import RateStorage
-            storage = RateStorage()
-            history = storage.get_rate_history(from_currency, to_currency, days=1)
-
-            if history:
-                # Берем время последнего обновления
-                updated_at = history[0]["timestamp"]
-            else:
-                updated_at = datetime.now().isoformat() + "Z"
-
-        except Exception:
-            # Если не удалось получить из истории, используем текущее время
+        rates_data = self._load_rates()
+        
+        # Ищем время обновления для пары валют в новой структуре
+        updated_at = None
+        source = "Unknown"
+        
+        if "pairs" in rates_data:
+            pair_key = f"{from_currency}_{to_currency}"
+            reverse_key = f"{to_currency}_{from_currency}"
+            
+            if pair_key in rates_data["pairs"]:
+                pair_data = rates_data["pairs"][pair_key]
+                updated_at = pair_data.get("updated_at")
+                source = pair_data.get("source", "Unknown")
+            elif reverse_key in rates_data["pairs"]:
+                pair_data = rates_data["pairs"][reverse_key]
+                updated_at = pair_data.get("updated_at")
+                source = pair_data.get("source", "Unknown")
+        
+        # Если источник все еще Unknown, определяем по типу валют
+        if source == "Unknown":
+            try:
+                from .currencies import get_currency
+                # Проверяем первую валюту в паре
+                curr_obj = get_currency(from_currency)
+                if hasattr(curr_obj, 'issuing_country'):
+                    source = "ExchangeRate-API"
+                else:
+                    source = "CoinGecko"
+            except:
+                pass
+        
+        if not updated_at:
             updated_at = datetime.now().isoformat() + "Z"
-
+        
         return {
             "from_currency": from_currency,
             "to_currency": to_currency,
             "rate": rate,
-            "updated_at": updated_at
+            "updated_at": updated_at,
+            "source": source
         }
 
 
